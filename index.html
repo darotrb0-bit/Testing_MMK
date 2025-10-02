@@ -208,10 +208,10 @@
             const CRB_LEAVE_SHEET_NAME = 'CRBRequests';
             
             const allowedAreaCoords = [
-                [11.413680442561867, 104.76339216308112],
-                [11.414127010981806, 104.76265983159293],
-                [11.413509327373639, 104.76218296457736],
-                [11.412874948214588, 104.76308560571397]
+                [11.415296921108219, 104.76411630326837],
+                [11.41524959639537, 104.76421353334031],
+                [11.4136513648048, 104.76344030651754],
+                [11.413703948114726, 104.76333502981896]
             ];
 
             // !!! សំខាន់ !!! សូមបង្កើត Google Apps Script ហើយបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
@@ -291,7 +291,7 @@
                     appContainer.classList.remove('hidden');
                     appContainer.classList.add('fade-in-up');
                 } catch(e) {
-                    showError(e.message || 'មិនអាចទាញទិន្នន័យបានទេ។ សូមព្យាយាមម្តងទៀត។')
+                    showError('មិនអាចទាញទិន្នន័យបានទេ។ សូមព្យាយាមម្តងទៀត។')
                 }
             }
 
@@ -509,7 +509,7 @@
                     case 'ពេញម៉ោង': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
                     case 'មួយព្រឹក': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: '11:30AM', checkOutEnd: '1:04PM' };
                     case 'មួយរសៀល': return { checkInStart: '11:00AM', checkInEnd: '1:44PM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
-                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '8:16PM', checkOutStart: '8:20PM', checkOutEnd: '10:04PM' };
+                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '6:44PM', checkOutStart: '8:55PM', checkOutEnd: '10:04PM' };
                     default: 
                         if (scheduleType) { console.warn(`Unknown schedule type: '${scheduleType}'`); }
                         return null;
@@ -672,18 +672,10 @@
                         const result = await postAttendanceData(data);
                         if (result.status === 'success') {
                             if (type === 'Check In') {
-                                // Optimistic update
-                                checkInButton.disabled = true;
-                                statusMessage.textContent = "Check In ជោគជ័យ!";
                                 liveTrackingWarning.classList.remove('hidden');
-                                setTimeout(() => {
+                                setTimeout(async () => {
                                     liveTrackingWarning.classList.add('hidden');
-                                    // Start countdown and tracking AFTER the warning
-                                    const timeWindows = getTimeWindowsForSchedule(todaySchedule, now.getDay());
-                                    if(timeWindows){
-                                        startLiveTracking();
-                                        startCheckoutCountdown(timeWindows);
-                                    }
+                                    await updateButtonStates();
                                 }, 3000);
                             } else {
                                 stopLiveTracking();
@@ -786,22 +778,19 @@
 
             function startCheckoutCountdown(timeWindows) {
                 stopCheckoutCountdown();
-                const now = new Date();
-                const checkoutTime = parseTime(now, timeWindows.checkOutStart);
-                const checkInTime = new Date(); // Assume check-in is 'now'
-
-                if (!checkoutTime || checkoutTime < now) { return; }
+                const checkoutTime = parseTime(new Date(), timeWindows.checkOutStart);
+                if (!checkoutTime || checkoutTime < new Date()) { return; }
 
                 countdownModal.classList.remove('hidden');
                 setTimeout(() => {
                     countdownModalContent.classList.remove('scale-95', 'opacity-0');
                 }, 10);
 
-                const totalWorkDuration = checkoutTime.getTime() - checkInTime.getTime();
+                const totalDuration = checkoutTime.getTime() - new Date().getTime();
 
                 function updateCountdown() {
-                    const currentTime = new Date();
-                    const remainingTime = checkoutTime.getTime() - currentTime.getTime();
+                    const now = new Date();
+                    const remainingTime = checkoutTime.getTime() - now.getTime();
                     if (remainingTime <= 0) {
                         stopCheckoutCountdown();
                         updateButtonStates();
@@ -816,8 +805,7 @@
                     countdownMinutes.textContent = String(minutes).padStart(2, '0');
                     countdownSeconds.textContent = String(seconds).padStart(2, '0');
                     
-                    const elapsedSinceCheckIn = currentTime.getTime() - checkInTime.getTime();
-                    const progress = Math.min(elapsedSinceCheckIn / totalWorkDuration, 1);
+                    const progress = (totalDuration - remainingTime) / totalDuration;
                     const offset = circumference * (1 - progress);
                     countdownCircle.style.strokeDashoffset = offset;
                 }
