@@ -410,7 +410,7 @@
                 fetch(proxiedScriptUrl, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json', // CRITICAL FIX
+                        'Content-Type': 'text/plain', // FIX: Use text/plain to avoid CORS preflight request
                     },
                     body: JSON.stringify(data),
                 })
