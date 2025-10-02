@@ -258,9 +258,11 @@
                 qrVideo.srcObject = currentStream;
                 qrVideo.play();
                 messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+                messageDiv.className = 'text-center mt-4 h-12 text-white';
                 qrScanner = requestAnimationFrame(tick);
             } catch (err) {
                  messageDiv.textContent = 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។';
+                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
                  console.error("Rear camera error:", err);
             }
         }
@@ -277,42 +279,59 @@
 
                 if (code) {
                     handleQRCode(code.data);
-                    return; 
+                    return; // Stop this animation frame, handleQRCode will restart if necessary.
                 }
             }
             qrScanner = requestAnimationFrame(tick);
         }
 
         function handleQRCode(qrData) {
-            cancelAnimationFrame(qrScanner);
-            stopAllStreams();
             messageDiv.textContent = 'បានស្កេន QR Code! កំពុងពិនិត្យទីតាំង...';
+            messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
             
             try {
                 const allowedAreaCoords = JSON.parse(qrData);
-                 if (!Array.isArray(allowedAreaCoords)) throw new Error("Invalid QR data format");
+                if (!Array.isArray(allowedAreaCoords)) throw new Error("Invalid QR data format");
 
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         const userCoords = [position.coords.latitude, position.coords.longitude];
                         if (isPointInPolygon(userCoords, allowedAreaCoords)) {
+                            // SUCCESS!
+                            cancelAnimationFrame(qrScanner);
+                            stopAllStreams();
                             submitAttendance();
                         } else {
+                            // FAILURE: Wrong location
                             messageDiv.textContent = 'អ្នកមិនស្ថិតនៅក្នុងទីតាំងដែលបានអនុញ្ញាតទេ។';
                             messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                            setTimeout(() => {
+                                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+                                messageDiv.className = 'text-center mt-4 h-12 text-white';
+                                qrScanner = requestAnimationFrame(tick);
+                            }, 2500);
                         }
                     },
                     (error) => {
-                        messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។ សូមអនុញ្ញាតឲ្យ Browser ប្រើប្រាស់ទីតាំង។';
+                        messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។';
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                        console.error("Geolocation error:", error);
+                        setTimeout(() => {
+                            messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+                            messageDiv.className = 'text-center mt-4 h-12 text-white';
+                            qrScanner = requestAnimationFrame(tick);
+                        }, 2500);
                     },
                     { enableHighAccuracy: true }
                 );
             } catch (e) {
+                // FAILURE: Invalid QR Code format
                 messageDiv.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                console.error("QR Code parse error:", e);
+                setTimeout(() => {
+                    messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+                    messageDiv.className = 'text-center mt-4 h-12 text-white';
+                    qrScanner = requestAnimationFrame(tick);
+                }, 2500);
             }
         }
         
