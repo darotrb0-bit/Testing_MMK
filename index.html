@@ -192,7 +192,7 @@
             ];
 
             // !!! សំខាន់ !!! សូមបង្កើត Google Apps Script ហើយបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
-            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzSB1wpXxbmRvH7pQYJ1NfDaFdoub-BpVrQWz2Z7sb73AGVeIbB8AbJl2vqJS8h7Ool8Q/exec';
+            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx1R73GM37Ys4VdETHSPrJGnc-h9_upi676KBXZnM_-slZvPjM3UCH7y6PHEXMZIlVHw/exec';
 
             // --- DOM Elements ---
             const loader = document.getElementById('loader');
@@ -442,34 +442,11 @@
                     const data = JSON.parse(text.substring(text.indexOf('(') + 1, text.lastIndexOf(')')));
                     if (data.status === 'error') { throw new Error(`API error for sheet ${sheetName}: ${data.errors[0]?.detailed_message}`); }
                     
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    const row = data.table.rows.find(r => {
-                        if (!r || !r.c) return false;
-
-                        const rowStudentId = r.c[2]?.v; // Column C
-                        if (String(rowStudentId) !== String(studentId)) return false;
-
-                        const approvalStatus = r.c[8]?.v; // Column I
-                        if (approvalStatus !== 'អនុញ្ញាត') return false;
-
-                        const dateStr = r.c[5]?.v; // Column F, e.g., "Date(2025,9,2)"
-                        if (!dateStr || typeof dateStr !== 'string') return false;
-                        
-                        const match = dateStr.match(/Date\((\d+),(\d+),(\d+)\)/);
-                        if (!match) return false;
-
-                        const [_, year, month, day] = match.map(Number);
-                        const sheetDate = new Date(year, month, day);
-                        sheetDate.setHours(0, 0, 0, 0);
-
-                        return sheetDate.getTime() === today.getTime();
-                    });
-
+                    const row = data.table.rows.find(r => r.c && String(r.c[2]?.v) === String(studentId));
                     if (row) {
-                        const leaveType = row.c[6]?.v; // Column G
-                        return leaveType || null;
+                        const approvalStatus = row.c[8]?.v;
+                        const leaveType = row.c[6]?.v;
+                        if (approvalStatus === 'អនុញ្ញាត') { return leaveType || null; }
                     }
                     return null;
                 } catch (error) { 
@@ -543,8 +520,7 @@
                     return data;
                 } catch (error) {
                     console.error('getAttendanceStatus failed:', error);
-                    const detailedMessage = `Server connection failed. Please check the Apps Script deployment. Details: ${error.message}`;
-                    return { error: true, message: detailedMessage };
+                    return { error: true, message: `Could not connect to the attendance server.` };
                 }
             }
             
@@ -560,7 +536,8 @@
                     ]);
 
                     if (attendanceStatus.error || leaveStatus?.error || crbLeaveStatus?.error) {
-                        const errorMsg = attendanceStatus.message || leaveStatus?.message || crbLeaveStatus?.message;
+                        const errorMsg = attendanceStatus.error ? attendanceStatus.message 
+                                     : (leaveStatus?.error ? leaveStatus.message : crbLeaveStatus.message);
                         throw new Error(errorMsg || "An unknown error occurred while fetching data.");
                     }
 
@@ -569,17 +546,9 @@
                     const todaySchedule = currentStudent.schedule[dayMapping[now.getDay()]];
                     let status = 'សូមស្វាគមន៍!'; let canCheckIn = false; let canCheckOut = false;
 
-                    let cannotCheckIn = false;
-                    let cannotCheckOut = false;
-
-                    // Check 'Requests' sheet
-                    if (leaveStatus === 'មួយព្រឹក' || leaveStatus === 'មួយថ្ងៃ') cannotCheckIn = true;
-                    if (leaveStatus === 'មួយរសៀល' || leaveStatus === 'មួយថ្ងៃ') cannotCheckOut = true;
+                    const cannotCheckIn = (leaveStatus === 'មួយព្រឹក' || leaveStatus === 'មួយថ្ងៃ') || (crbLeaveStatus === 'មួយព្រឹក' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់');
+                    const cannotCheckOut = (leaveStatus === 'មួយរសៀល' || leaveStatus === 'មួយថ្ងៃ') || (crbLeaveStatus === 'មួយរសៀល' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់');
                     
-                    // Check 'CRBRequests' sheet
-                    if (crbLeaveStatus === 'មួយព្រឹក' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់') cannotCheckIn = true;
-                    if (crbLeaveStatus === 'មួយរសៀល' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់') cannotCheckOut = true;
-
                     if (attendanceStatus.checkIn && !attendanceStatus.checkOut) {
                         if (!isCurrentlyTracking) startLiveTracking();
                         liveTrackingWarning.classList.remove('hidden');
@@ -592,7 +561,6 @@
                     else {
                         const isCheckInTime = isTimeInWindow(now, timeWindows.checkInStart, timeWindows.checkInEnd);
                         const isCheckOutTime = isTimeInWindow(now, timeWindows.checkOutStart, timeWindows.checkOutEnd);
-                        
                         if (!cannotCheckIn && isCheckInTime && !attendanceStatus.checkIn) canCheckIn = true;
                         if (!cannotCheckOut && isCheckOutTime && attendanceStatus.checkIn && !attendanceStatus.checkOut) canCheckOut = true;
                         
@@ -600,11 +568,7 @@
                         else if (attendanceStatus.checkIn) { status = 'អ្នកបាន Check In រួចរាល់។'; }
                         else if (canCheckIn) { status = 'អ្នកអាច Check In បាន។'; }
                         else if (!isCheckInTime && !isCheckOutTime) { status = 'ផុតម៉ោងឆែកវត្តមានហើយ!!!'; }
-                        else {
-                            if (cannotCheckIn && isCheckInTime) status = 'អ្នកបានសុំច្បាប់ពេលព្រឹក។';
-                            else if (cannotCheckOut && isCheckOutTime) status = 'អ្នកបានសុំច្បាប់ពេលរសៀល។';
-                            else status = 'សូមរង់ចាំដល់ម៉ោង Check In / Out';
-                        }
+                        else { status = cannotCheckIn && isCheckInTime ? 'អ្នកបានសុំច្បាប់ពេលព្រឹក។' : 'សូមរង់ចាំដល់ម៉ោង Check In / Out'; }
                     }
                     checkInButton.disabled = !canCheckIn; 
                     checkOutButton.disabled = !canCheckOut;
@@ -677,9 +641,8 @@
                     if (!response.ok) throw new Error(`Server error: ${response.status}`);
                     return await response.json();
                 } catch (error) {
-                    const detailedMessage = `Failed to save data. Details: ${error.message}`;
-                    if (data.action !== 'sendTelegramAlert') statusMessage.textContent = detailedMessage;
-                    return { status: 'error', message: detailedMessage };
+                    if (data.action !== 'sendTelegramAlert') statusMessage.textContent = 'ការរក្សាទុកបរាជ័យ។';
+                    return { status: 'error', message: error.message };
                 }
             }
 
