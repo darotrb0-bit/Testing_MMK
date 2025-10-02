@@ -62,18 +62,10 @@
             background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; opacity: 0.7;
         }
 
-        /* Animation for page load */
-        .fade-in-up {
-            animation: fadeInUp 0.5s ease-out forwards;
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        #countdownCircle { transition: stroke-dashoffset 0.5s linear; }
     </style>
 </head>
 <body class="flex justify-center min-h-screen p-4 sm:items-center">
@@ -171,6 +163,24 @@
         </div>
     </div>
     
+    <!-- Countdown Timer Modal -->
+    <div id="countdownModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 p-4">
+        <div class="bg-white p-6 rounded-lg shadow-2xl max-w-xs w-full text-center transform transition-all scale-95 opacity-0" id="countdownModalContent">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">ពេលវេលារហូតដល់ម៉ោង Check Out</h3>
+            <div class="relative w-48 h-48 mx-auto">
+                <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-gray-200" stroke-width="10" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
+                    <circle id="countdownCircle" class="text-indigo-500" stroke-width="10" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" 
+                            style="transform: rotate(-90deg); transform-origin: 50% 50%;" />
+                </svg>
+                <div id="countdownText" class="absolute inset-0 flex flex-col items-center justify-center text-2xl font-bold text-indigo-600">
+                    <span id="countdownHours">00</span>:<span id="countdownMinutes">00</span>:<span id="countdownSeconds">00</span>
+                </div>
+            </div>
+             <p class="text-sm text-gray-500 mt-4">ការតាមដានទីតាំងកំពុងដំណើរការ</p>
+        </div>
+    </div>
+    
     <!-- Modal បញ្ជាក់ការចាកចេញ -->
     <div id="logoutModal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center transform transition-all scale-95 opacity-0" id="logoutModalContent">
@@ -197,7 +207,7 @@
             const CRB_LEAVE_SHEET_ID = '1xpy1CDg3LTD1iYPXKbfJrjldR5vVW3AhoNSwTzb8wDY';
             const CRB_LEAVE_SHEET_NAME = 'CRBRequests';
             
-            const allowedAreaCoords = [
+             const allowedAreaCoords = [
                 [11.413680442561867, 104.76339216308112],
                 [11.414127010981806, 104.76265983159293],
                 [11.413509327373639, 104.76218296457736],
@@ -238,6 +248,15 @@
             const logoutModalContent = document.getElementById('logoutModalContent');
             const cancelLogoutButton = document.getElementById('cancelLogoutButton');
             const confirmLogoutButton = document.getElementById('confirmLogoutButton');
+            const countdownModal = document.getElementById('countdownModal');
+            const countdownModalContent = document.getElementById('countdownModalContent');
+            const countdownCircle = document.getElementById('countdownCircle');
+            const countdownHours = document.getElementById('countdownHours');
+            const countdownMinutes = document.getElementById('countdownMinutes');
+            const countdownSeconds = document.getElementById('countdownSeconds');
+            const circleRadius = countdownCircle.r.baseVal.value;
+            const circumference = 2 * Math.PI * circleRadius;
+            countdownCircle.style.strokeDasharray = circumference;
 
             // --- State Management ---
             let studentData = []; let currentStudent = null; let faceMatcher = null;
@@ -245,6 +264,7 @@
             let liveWatchId = null; let disconnectionTimer = null; let isCurrentlyTracking = false;
             let telegramAlertSent = false;
             let disconnectionLogged = false;
+            let countdownInterval = null;
 
             // --- Core Functions ---
             async function checkForSavedSession() {
@@ -489,7 +509,7 @@
                     case 'ពេញម៉ោង': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
                     case 'មួយព្រឹក': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: '11:30AM', checkOutEnd: '1:04PM' };
                     case 'មួយរសៀល': return { checkInStart: '11:00AM', checkInEnd: '1:44PM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
-                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '7:32PM', checkOutStart: '7:34PM', checkOutEnd: '10:04PM' };
+                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '7:44PM', checkOutStart: '7:46PM', checkOutEnd: '10:04PM' };
                     default: 
                         if (scheduleType) { console.warn(`Unknown schedule type: '${scheduleType}'`); }
                         return null;
@@ -582,9 +602,9 @@
                     if (attendanceStatus.checkIn && !attendanceStatus.checkOut) {
                         if (!isCurrentlyTracking) startLiveTracking();
                         if (!isCheckOutTime) {
-                            liveTrackingWarning.classList.remove('hidden');
+                            startCheckoutCountdown(timeWindows);
                         } else {
-                            liveTrackingWarning.classList.add('hidden');
+                            stopCheckoutCountdown();
                         }
                     } else { 
                         stopLiveTracking(); 
@@ -635,34 +655,42 @@
             async function handleAttendanceClick(type) {
                 setButtonLoading(type, true);
                 statusMessage.textContent = 'កំពុងស្នើសុំទីតាំង...';
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        const { latitude, longitude } = position.coords;
-                        const isInArea = isPointInPolygon([latitude, longitude], allowedAreaCoords);
-                        if (isInArea) {
-                            const now = new Date();
-                            const dayMapping = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-                            const todaySchedule = currentStudent.schedule[dayMapping[now.getDay()]] || 'N/A';
-                            const data = { action: type.replace(' ', ''), studentId: currentStudent.id, schedule: todaySchedule };
-                            
-                            const result = await postAttendanceData(data);
-                            if (result.status === 'success') {
-                                if (type === 'Check Out') stopLiveTracking();
-                                await updateButtonStates();
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+                    });
+
+                    const { latitude, longitude } = position.coords;
+                    const isInArea = isPointInPolygon([latitude, longitude], allowedAreaCoords);
+                    
+                    if (isInArea) {
+                        const now = new Date();
+                        const dayMapping = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                        const todaySchedule = currentStudent.schedule[dayMapping[now.getDay()]] || 'N/A';
+                        const data = { action: type.replace(' ', ''), studentId: currentStudent.id, schedule: todaySchedule };
+                        
+                        const result = await postAttendanceData(data);
+                        if (result.status === 'success') {
+                            if (type === 'Check In') {
+                                liveTrackingWarning.classList.remove('hidden');
+                                setTimeout(async () => {
+                                    liveTrackingWarning.classList.add('hidden');
+                                    await updateButtonStates();
+                                }, 3000);
                             } else {
-                                statusMessage.textContent = `ការ ${type} បរាជ័យ: ${result.message || 'Unknown error'}`;
+                                stopLiveTracking();
                                 await updateButtonStates();
                             }
                         } else {
-                            statusMessage.textContent = `អ្នកមិនស្ថិតនៅក្នុងតំបន់កំណត់ទេ។`;
-                            setButtonLoading(type, false);
+                            throw new Error(result.message || 'Unknown error');
                         }
-                    },
-                    (error) => {
-                        statusMessage.textContent = error.code === 1 ? 'សូមអនុញ្ញាតឱ្យចូលប្រើទីតាំង។' : 'មិនអាចទទួលបានទីតាំងទេ។';
-                        setButtonLoading(type, false);
-                    }, { enableHighAccuracy: true }
-                );
+                    } else {
+                        throw new Error('អ្នកមិនស្ថិតនៅក្នុងតំបន់កំណត់ទេ។');
+                    }
+                } catch (error) {
+                    statusMessage.textContent = error.message || 'ការស្នើសុំទីតាំងបរាជ័យ។';
+                    setButtonLoading(type, false);
+                }
             }
             
             async function postAttendanceData(data) {
@@ -704,6 +732,7 @@
             function stopLiveTracking() {
                 isCurrentlyTracking = false;
                 liveTrackingWarning.classList.add('hidden');
+                stopCheckoutCountdown();
                 if (liveWatchId) { navigator.geolocation.clearWatch(liveWatchId); liveWatchId = null; }
                 if (disconnectionTimer) { clearTimeout(disconnectionTimer); disconnectionTimer = null; }
                 window.removeEventListener('offline', () => handleDisconnection('signal', null));
@@ -745,6 +774,54 @@
                 const { latitude, longitude } = position.coords;
                 const data = { action: 'sendTelegramAlert', studentName: currentStudent.name, latitude, longitude };
                 postAttendanceData(data); // Fire and forget
+            }
+
+            function startCheckoutCountdown(timeWindows) {
+                stopCheckoutCountdown();
+                const checkoutTime = parseTime(new Date(), timeWindows.checkOutStart);
+                if (!checkoutTime || checkoutTime < new Date()) { return; }
+
+                countdownModal.classList.remove('hidden');
+                setTimeout(() => {
+                    countdownModalContent.classList.remove('scale-95', 'opacity-0');
+                }, 10);
+
+                const totalDuration = checkoutTime.getTime() - new Date().getTime();
+
+                function updateCountdown() {
+                    const now = new Date();
+                    const remainingTime = checkoutTime.getTime() - now.getTime();
+                    if (remainingTime <= 0) {
+                        stopCheckoutCountdown();
+                        updateButtonStates();
+                        return;
+                    }
+
+                    const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+                    const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+
+                    countdownHours.textContent = String(hours).padStart(2, '0');
+                    countdownMinutes.textContent = String(minutes).padStart(2, '0');
+                    countdownSeconds.textContent = String(seconds).padStart(2, '0');
+                    
+                    const progress = (totalDuration - remainingTime) / totalDuration;
+                    const offset = circumference * (1 - progress);
+                    countdownCircle.style.strokeDashoffset = offset;
+                }
+                updateCountdown();
+                countdownInterval = setInterval(updateCountdown, 1000);
+            }
+
+            function stopCheckoutCountdown() {
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+                countdownModalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                   countdownModal.classList.add('hidden');
+               }, 200);
             }
 
             function showLogoutModal() {
