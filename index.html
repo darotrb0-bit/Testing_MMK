@@ -61,6 +61,19 @@
         .attendance-btn:disabled {
             background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; opacity: 0.7;
         }
+
+        /* Animation for page load */
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 <body class="flex justify-center min-h-screen p-4 sm:items-center">
@@ -100,7 +113,7 @@
     </div>
 
     <!-- ផ្ទាំងវត្តមាន -->
-    <div id="attendancePage" class="hidden w-full max-w-md">
+    <div id="attendancePage" class="hidden w-full max-w-md sm:max-w-lg">
         <div class="bg-white rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
             <div class="flex flex-col items-center space-y-2">
                 <div class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-3xl font-bold ring-4 ring-white shadow-md">
@@ -185,10 +198,10 @@
             const CRB_LEAVE_SHEET_NAME = 'CRBRequests';
             
             const allowedAreaCoords = [
-                [11.413459244859993, 104.76349434887015],
-                [11.413947548990963, 104.76270240900503],
-                [11.413100319920312, 104.76222554198948],
-                [11.412787303614024, 104.76318779150301]
+                [11.413680442561867, 104.76339216308112],
+                [11.414127010981806, 104.76265983159293],
+                [11.413509327373639, 104.76218296457736],
+                [11.412874948214588, 104.76308560571397]
             ];
 
             // !!! សំខាន់ !!! សូមបង្កើត Google Apps Script ហើយបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
@@ -253,7 +266,13 @@
             async function initializeLoginForm() {
                 loader.classList.remove('hidden');
                 loader.querySelector('p').textContent = 'កំពុងទាញទិន្នន័យ...';
-                await Promise.all([loadModels(), fetchData()]);
+                try {
+                    await Promise.all([loadModels(), fetchData()]);
+                    appContainer.classList.remove('hidden');
+                    appContainer.classList.add('fade-in-up');
+                } catch(e) {
+                    showError('មិនអាចទាញទិន្នន័យបានទេ។ សូមព្យាយាមម្តងទៀត។')
+                }
             }
 
             async function showAttendancePage(student) {
@@ -266,6 +285,7 @@
                     userInitial.textContent = student.name.trim().charAt(0).toUpperCase();
                 }
                 attendancePage.classList.remove('hidden');
+                attendancePage.classList.add('fade-in-up');
                 await updateButtonStates();
             }
             
@@ -273,10 +293,12 @@
                 stopLiveTracking();
                 localStorage.removeItem('loggedInStudent');
                 attendancePage.classList.add('hidden');
-                accountForm.classList.remove('hidden');
+                accountForm.reset();
+                idInput.disabled = true;
+                idDatalist.innerHTML = '';
+                nameDisplay.textContent = '-';
                 appContainer.classList.remove('hidden');
-                classInput.value = ''; idInput.value = ''; idInput.disabled = true;
-                idDatalist.innerHTML = ''; nameDisplay.textContent = '-'; currentStudent = null;
+                currentStudent = null;
             }
 
             async function loadModels() {
@@ -288,7 +310,10 @@
                         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
                     ]);
                     areModelsLoaded = true;
-                } catch (error) { showError('បរាជ័យក្នុងការទាញយកម៉ូដែលវិភាគមុខ។'); }
+                } catch (error) { 
+                    console.error("Model loading error:", error);
+                    throw new Error('បរាជ័យក្នុងការទាញយកម៉ូដែលវិភាគមុខ។'); 
+                }
             }
             
             async function fetchData() {
@@ -315,14 +340,16 @@
                         return null;
                     }).filter(Boolean);
                     populateClasses();
-                    loader.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                } catch (error) { showError('បរាជ័យក្នុងការទាញទិន្នន័យ។'); console.error(error); }
+                } catch (error) { 
+                    console.error("Fetch data error:", error);
+                    throw new Error('បរាជ័យក្នុងការទាញទិន្នន័យ។');
+                }
             }
             
             function handleRetry() {
                 errorContainer.classList.add('hidden');
-                accountForm.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                loader.classList.remove('hidden');
                 initializeLoginForm();
             }
 
@@ -462,7 +489,7 @@
                     case 'ពេញម៉ោង': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
                     case 'មួយព្រឹក': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: '11:30AM', checkOutEnd: '1:04PM' };
                     case 'មួយរសៀល': return { checkInStart: '11:00AM', checkInEnd: '1:44PM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
-                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '6:44PM', checkOutStart: '7:10PM', checkOutEnd: '10:04PM' };
+                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '7:29PM', checkOutStart: '7:33PM', checkOutEnd: '10:04PM' };
                     default: 
                         if (scheduleType) { console.warn(`Unknown schedule type: '${scheduleType}'`); }
                         return null;
