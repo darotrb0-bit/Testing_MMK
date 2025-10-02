@@ -5,538 +5,466 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Library សម្រាប់ Face Recognition -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <!-- Library សម្រាប់ QR Code Scanner -->
-    <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
-    <!-- Library សម្រាប់ QR Code Generator -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Noto+Sans+Khmer:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Noto Sans Khmer', sans-serif;
-            -webkit-tap-highlight-color: transparent;
+            font-family: 'Kantumruy Pro', sans-serif;
+            touch-action: manipulation;
         }
-        h1, h2, h3 {
-            font-family: 'Koulen', cursive;
+        .loader {
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
         }
-        #video-container {
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #video-container, #verification-video-container {
             position: relative;
             width: 100%;
             max-width: 500px;
             margin: auto;
-            border-radius: 0.5rem;
-            overflow: hidden;
         }
-        #video {
+        video {
             width: 100%;
-            height: auto;
-            transform: scaleX(-1); /* Mirror effect */
+            border-radius: 0.5rem;
         }
-        #canvas {
+        canvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
         }
-        .loader {
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .combobox-options {
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+    <div id="main-container" class="w-full max-w-md mx-auto">
+        
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="text-center">
+            <div class="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-24 w-24 mx-auto mb-4"></div>
+            <h2 class="text-xl font-semibold">កំពុងរៀបចំប្រព័ន្ធ...</h2>
+            <p id="loading-message">សូមរង់ចាំបន្តិច</p>
+        </div>
 
-    <div id="main-container" class="w-full max-w-lg mx-auto bg-gray-800 rounded-xl shadow-2xl p-6">
+        <!-- Step 1: Verification -->
+        <div id="verification-step" class="hidden bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h1 class="text-2xl font-bold text-center mb-2 text-teal-300">ផ្ទៀងផ្ទាត់អត្តសញ្ញាណ</h1>
+            <p class="text-center text-gray-400 mb-6">សូមជ្រើសរើសឈ្មោះ និងផ្ទៀងផ្ទាត់ផ្ទៃមុខ</p>
 
-        <!-- ជំហានទី 1: ផ្ទាំងផ្ទៀងផ្ទាត់អត្តសញ្ញាណ -->
-        <div id="verification-step">
-            <h1 class="text-3xl font-bold text-center text-cyan-400 mb-4">ផ្ទៀងផ្ទាត់អត្តសញ្ញាណ</h1>
-            <p class="text-center text-gray-400 mb-6">សូមជ្រើសរើស ឬវាយបញ្ចូលអត្តលេខ/ឈ្មោះ រួចផ្ទៀងផ្ទាត់ផ្ទៃមុខ។</p>
-            
-            <div class="mb-4">
-                <label for="employee-input" class="block mb-2 text-sm font-medium text-gray-300">អត្តលេខ ឬ ឈ្មោះបុគ្គលិក</label>
-                <input list="employee-list" id="employee-input" class="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5" placeholder="ជ្រើសរើស ឬវាយបញ្ចូល...">
-                <datalist id="employee-list"></datalist>
-            </div>
-
-            <div class="flex justify-center items-center my-4 space-x-4">
-                <div class="w-24 h-24 bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
-                    <img id="reference-photo" src="https://placehold.co/100x100/374151/FFFFFF?text=រូបថត" alt="Reference Photo" class="w-full h-full object-cover">
-                </div>
-                 <div id="video-container" class="w-48 h-48 bg-gray-700 rounded-lg overflow-hidden hidden">
-                    <video id="video" autoplay muted playsinline></video>
-                    <canvas id="canvas"></canvas>
+            <!-- Custom Combobox -->
+            <div id="combobox" class="relative">
+                <input type="text" id="combobox-input" class="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="វាយអត្តលេខ ឬ ឈ្មោះ...">
+                <div id="combobox-options" class="combobox-options hidden absolute z-10 w-full bg-gray-700 border border-gray-600 rounded-md mt-1">
+                    <!-- Options will be populated by JS -->
                 </div>
             </div>
 
-            <div id="status-text" class="text-center mt-4 text-yellow-400"></div>
+            <div id="verification-video-container" class="mt-4 hidden">
+                <video id="verification-video" playsinline autoplay muted></video>
+            </div>
+            <p id="verification-message" class="text-center mt-4 h-6"></p>
         </div>
 
-        <!-- ជំហានទី 2: ផ្ទាំង Check in / Check out -->
-        <div id="attendance-step" class="hidden">
-            <h1 class="text-3xl font-bold text-center text-green-400 mb-2">ប្រព័ន្ធវត្តមាន</h1>
-            <p id="welcome-message" class="text-center text-gray-300 mb-6"></p>
-            <p id="next-action-text" class="text-center text-yellow-400 mb-4"></p>
-            
-            <div id="qr-reader" class="w-full rounded-lg overflow-hidden mb-4" style="display: none;"></div>
-
-            <div id="attendance-status" class="mt-6 text-center text-lg p-4 rounded-lg"></div>
-            
-            <div class="mt-4">
-                <h3 class="text-lg font-semibold text-gray-400 mb-2">កំណត់ត្រាវត្តមានថ្ងៃនេះ:</h3>
-                <ul id="attendance-log" class="bg-gray-900 rounded-lg p-3 max-h-40 overflow-y-auto">
-                    <!-- Log items will be added here -->
-                </ul>
+        <!-- Step 2: Check In / Check Out -->
+        <div id="check-in-out-step" class="hidden text-center bg-gray-800 p-6 rounded-lg shadow-lg">
+             <div class="mb-4">
+                <img id="employee-photo" class="w-24 h-24 rounded-full mx-auto border-4 border-teal-400" src="https://placehold.co/100x100/334155/e2e8f0?text=Employee" alt="Employee Photo">
+                <h2 id="employee-name-display" class="text-xl font-bold mt-2"></h2>
+                <p id="employee-id-display" class="text-gray-400"></p>
             </div>
-            
-            <button id="logout-btn" class="w-full mt-6 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                ចាកចេញ
-            </button>
+            <p class="text-lg mb-4">ការផ្ទៀងផ្ទាត់ជោគជ័យ!</p>
+            <div id="video-container" class="mb-4">
+                <video id="qr-video" playsinline></video>
+            </div>
+            <p id="message" class="text-center mt-4 h-12"></p>
+            <div id="attendance-log" class="mt-4 text-left bg-gray-700 p-4 rounded-lg max-h-48 overflow-y-auto">
+                <h3 class="font-bold mb-2">កំណត់ត្រាវត្តមានថ្ងៃនេះ</h3>
+                <div id="log-content"></div>
+            </div>
         </div>
-
-        <!-- ផ្ទាំងសម្រាប់បង្កើត QR Code (Admin Only) -->
-        <div id="qr-generator-section" class="mt-8 border-t border-gray-700 pt-6 hidden">
-            <h2 class="text-xl text-center text-gray-400"> QR Code សម្រាប់ទីតាំង</h2>
-            <div class="flex justify-center my-4">
-                 <canvas id="qrcode-canvas"></canvas>
-            </div>
-            <p class="text-xs text-center text-gray-500">ប្រើ QR Code នេះសម្រាប់បុគ្គលិកស្កេននៅទីតាំងដែលបានកំណត់។</p>
+        
+        <!-- Admin QR Code Generator -->
+        <div id="admin-qr-generator" class="hidden mt-8 bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-bold text-center mb-4">ផ្ទាំងរបស់អ្នកគ្រប់គ្រង</h2>
+            <p class="text-center mb-4">QR Code សម្រាប់ Check-in/out នៅទីតាំង</p>
+            <div id="qrcode" class="flex justify-center bg-white p-4 rounded-md"></div>
         </div>
     </div>
+    
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
-    <script type="module">
-        // --- GOOGLE SHEET CONFIGURATION ---
-        const SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
-        const SHEET_NAME = 'DIList';
-        
-        // This will hold the data fetched from the Google Sheet
-        let employeeData = [];
-
-        // --- DOM ELEMENTS ---
+    <script>
+        const verificationVideo = document.getElementById('verification-video');
+        const qrVideo = document.getElementById('qr-video');
+        const messageDiv = document.getElementById('message');
+        const verificationMessageDiv = document.getElementById('verification-message');
+        const loadingScreen = document.getElementById('loading-screen');
+        const loadingMessage = document.getElementById('loading-message');
         const verificationStep = document.getElementById('verification-step');
-        const attendanceStep = document.getElementById('attendance-step');
-        const employeeInput = document.getElementById('employee-input');
-        const employeeList = document.getElementById('employee-list');
-        const referencePhoto = document.getElementById('reference-photo');
-        const videoContainer = document.getElementById('video-container');
-        const video = document.getElementById('video');
-        const statusText = document.getElementById('status-text');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const attendanceStatus = document.getElementById('attendance-status');
-        const attendanceLog = document.getElementById('attendance-log');
-        const logoutBtn = document.getElementById('logout-btn');
-        const qrcodeCanvas = document.getElementById('qrcode-canvas');
-        const qrReaderDiv = document.getElementById('qr-reader');
-        const nextActionText = document.getElementById('next-action-text');
-
-
-        // --- STATE VARIABLES ---
-        let currentEmployee = null;
-        let faceMatcher = null;
-        let stream = null;
-        let html5QrCode = null;
-        let lastAction = null;
-
-        // --- SCRIPT & SHEET CONFIG ---
-        // !!! សំខាន់: សូមប្តូរ URL នេះជាមួយ URL ពី Google Apps Script ដែលអ្នកបាន Deploy !!!
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
-
-        // --- LOCATION CONFIGURATION ---
-        const allowedAreaCoords = [
-            [11.413680442561867, 104.76339216308112],
-            [11.414127010981806, 104.76265983159293],
-            [11.413509327373639, 104.76218296457736],
-            [11.412874948214588, 104.76308560571397]
-        ];
-        const locationDataForQR = {
-            type: "attendance-location",
-            name: "Main Office Area",
-            polygon: allowedAreaCoords
-        };
+        const checkInOutStep = document.getElementById('check-in-out-step');
+        const adminQrGenerator = document.getElementById('admin-qr-generator');
+        const verificationVideoContainer = document.getElementById('verification-video-container');
+        const logContent = document.getElementById('log-content');
         
-        // --- INITIALIZATION ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            setupAdminView();
-            generateLocationQrCode();
-            // Fetch data from Google Sheet first, then load face models
-            await fetchEmployeeData();
-            await loadFaceApiModels();
-        });
-        
-        function setupAdminView() {
-            const qrGeneratorSection = document.getElementById('qr-generator-section');
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('role') === 'admin') {
-                qrGeneratorSection.classList.remove('hidden');
-            }
-        }
+        // Combobox elements
+        const comboboxInput = document.getElementById('combobox-input');
+        const comboboxOptions = document.getElementById('combobox-options');
 
+        let employees = [];
+        let selectedEmployee = null;
+        let currentStream;
+        let qrScanner;
+
+        const GOOGLE_SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
+        const GOOGLE_SHEET_NAME = 'DIList';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
+
+        // --- Data Fetching ---
         async function fetchEmployeeData() {
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
-            statusText.textContent = 'កំពុងទាញទិន្នន័យបុគ្គលិក...';
-
+            loadingMessage.textContent = 'កំពុងទាញទិន្នន័យបុគ្គលិក...';
             try {
+                const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${GOOGLE_SHEET_NAME}&headers=1`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Network response was not ok');
-                
                 const csvText = await response.text();
                 
-                // Parse the CSV text into an array of objects
-                const rows = csvText.trim().split('\n').slice(8); // Data starts from row 9
-                const parsedData = rows.map(row => {
-                    // This regex handles commas within quoted fields
-                    const columns = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g).map(col => col.trim().replace(/"/g, ''));
-                    
-                    // Ensure the row has enough columns and essential data is present
-                    if (columns.length > 26 && columns[4] && columns[11] && columns[26]) {
-                        return {
-                            id: columns[4],       // Column E
-                            name: columns[11],    // Column L
-                            photoUrl: columns[26] // Column AA
-                        };
-                    }
-                    return null;
-                }).filter(Boolean); // Remove any empty or invalid rows
-
-                employeeData = parsedData;
-                populateEmployeeList();
-                statusText.textContent = 'ទាញទិន្នន័យរួចរាល់!';
-
-            } catch (error) {
-                console.error('Failed to fetch employee data:', error);
-                statusText.textContent = 'Error: មិនអាចទាញទិន្នន័យពី Google Sheet បានទេ។';
-            }
-        }
-        
-        function populateEmployeeList() {
-            employeeList.innerHTML = ''; // Clear existing options
-            employeeData.forEach(emp => {
-                const option = document.createElement('option');
-                option.value = `${emp.id} - ${emp.name}`;
-                employeeList.appendChild(option);
-            });
-        }
-
-        async function loadFaceApiModels() {
-            statusText.textContent = 'កំពុងទាញយក Model...';
-            try {
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'),
-                    faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'),
-                    faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'),
-                    faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights')
-                ]);
-                statusText.textContent = 'រួចរាល់! សូមជ្រើសរើសបុគ្គលិក។';
-            } catch (error) {
-                console.error("Error loading face-api models:", error);
-                statusText.textContent = 'Error: មិនអាចទាញយក Model បាន។';
-            }
-        }
-
-        // --- FACE VERIFICATION LOGIC ---
-        employeeInput.addEventListener('input', async (e) => {
-            const value = e.target.value;
-            const selectedEmployee = employeeData.find(emp => `${emp.id} - ${emp.name}` === value);
-            
-            if (selectedEmployee) {
-                currentEmployee = selectedEmployee;
-                referencePhoto.src = currentEmployee.photoUrl;
-                statusText.textContent = `កំពុងរៀបចំសម្រាប់ ${currentEmployee.name}...`;
+                const rows = csvText.split('\n').map(row => row.split('","').map(cell => cell.replace(/"/g, '')));
+                employees = rows.slice(8) 
+                    .map(row => ({
+                        id: row[4],       // Column E
+                        name: row[11],    // Column L
+                        photoUrl: row[26] // Column AA
+                    }))
+                    .filter(emp => emp.id && emp.name && emp.photoUrl); // Ensure all data is present
                 
-                try {
-                    const refImage = await faceapi.fetchImage(currentEmployee.photoUrl);
-                    const results = await faceapi.detectSingleFace(refImage).withFaceLandmarks().withFaceDescriptor();
-                    if (results) {
-                        const labeledDescriptors = [new faceapi.LabeledFaceDescriptors(currentEmployee.id, [results.descriptor])];
-                        faceMatcher = new faceapi.FaceMatcher(labeledDescriptors);
-                        statusText.textContent = 'បានរៀបចំរួចរាល់។ កំពុងចាប់ផ្តើមផ្ទៀងផ្ទាត់...';
-                        await startFaceVerification(); // Automatically start verification
-                    } else {
-                        throw new Error('No face detected in reference photo.');
-                    }
-                } catch (error) {
-                    console.error("Error preparing face matcher:", error);
-                    statusText.textContent = 'Error: មិនអាចដំណើរការរូបថតយោងបានទេ។';
-                    currentEmployee = null;
-                }
-            } else {
-                currentEmployee = null;
-                referencePhoto.src = 'https://placehold.co/100x100/374151/FFFFFF?text=រូបថត';
-                statusText.textContent = 'សូមជ្រើសរើសបុគ្គលិក។';
-            }
-        });
-
-        async function startFaceVerification() {
-            if (!currentEmployee || !faceMatcher) return;
-            
-            statusText.innerHTML = '<div class="loader mx-auto"></div><p>សូមបើកកាមេរ៉ា...</p>';
-            videoContainer.classList.remove('hidden');
-            
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                video.srcObject = stream;
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                statusText.textContent = 'Error: មិនអាចបើកកាមេរ៉ាបានទេ។';
-                videoContainer.classList.add('hidden');
-                return;
-            }
-
-            video.onplay = () => {
-                const detectionInterval = setInterval(async () => {
-                    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                    
-                    if (detections) {
-                        const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
-                        if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.5) { // Threshold
-                            clearInterval(detectionInterval);
-                            handleSuccessfulVerification();
-                        } else {
-                            statusText.textContent = 'រកមិនឃើញមុខตรงกัน... សូមព្យាយាមម្តងទៀត។';
-                        }
-                    } else {
-                         statusText.textContent = 'សូមដាក់មុខឲ្យចំកាមេរ៉ា...';
-                    }
-                }, 500);
-            };
-        }
-
-        function handleSuccessfulVerification() {
-            statusText.textContent = 'ផ្ទៀងផ្ទាត់បានជោគជ័យ!';
-            statusText.classList.add('text-green-400');
-            stopVideoStream();
-            
-            setTimeout(() => {
-                verificationStep.classList.add('hidden');
-                attendanceStep.classList.remove('hidden');
-                welcomeMessage.textContent = `សូមស្វាគមន៍, ${currentEmployee.name}`;
-                statusText.classList.remove('text-green-400');
-                statusText.textContent = '';
-                videoContainer.classList.add('hidden');
-                startQrScanner();
-            }, 1500);
-        }
-
-        function stopVideoStream() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-                video.srcObject = null;
+                populateCombobox(employees);
+            } catch (error) {
+                console.error('Error fetching employee data:', error);
+                loadingMessage.textContent = 'បរាជ័យក្នុងការទាញទិន្នន័យបុគ្គលិក។';
             }
         }
 
-        // --- QR SCANNING & LOCATION CHECK ---
-        function startQrScanner() {
-            attendanceStatus.textContent = '';
-            attendanceStatus.className = 'mt-6 text-center text-lg p-4 rounded-lg';
-            qrReaderDiv.style.display = 'block';
-            
-            const nextAction = (lastAction === 'Check In') ? 'Check Out' : 'Check In';
-            nextActionText.textContent = `ការស្កេនបន្ទាប់នឹងត្រូវកត់ត្រាជា: ${nextAction}`;
-
-            html5QrCode = new Html5Qrcode("qr-reader");
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
-            html5QrCode.start({ facingMode: "environment" }, config, 
-                (decodedText, decodedResult) => {
-                    handleQrScanSuccess(decodedText);
-                },
-                (errorMessage) => { /* ignore */ }
-            ).catch((err) => {
-                console.error("Unable to start scanning.", err);
-                attendanceStatus.textContent = `Error: មិនអាចបើកកាមេរ៉ាក្រោយបានទេ។`;
-                attendanceStatus.classList.add('bg-red-900', 'text-red-300');
+        // --- Combobox Logic ---
+        function populateCombobox(data) {
+            comboboxOptions.innerHTML = '';
+            data.forEach(emp => {
+                const option = document.createElement('div');
+                option.className = 'p-2 hover:bg-gray-600 cursor-pointer';
+                option.textContent = `${emp.id} - ${emp.name}`;
+                option.dataset.id = emp.id;
+                option.addEventListener('click', () => {
+                    comboboxInput.value = option.textContent;
+                    comboboxOptions.classList.add('hidden');
+                    handleEmployeeSelection(emp.id);
+                });
+                comboboxOptions.appendChild(option);
             });
         }
-        
-        function stopQrScanner() {
-             if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().then(() => {
-                    qrReaderDiv.style.display = 'none';
-                    html5QrCode.clear();
-                }).catch(err => {
-                    console.error("Failed to stop QR scanner.", err);
-                });
-            }
-        }
-        
-        function handleQrScanSuccess(decodedText) {
-            stopQrScanner();
-            try {
-                const qrData = JSON.parse(decodedText);
-                if (qrData.type === 'attendance-location') {
-                    const action = (lastAction === 'Check In') ? 'Check Out' : 'Check In';
-                    attendanceStatus.textContent = `បានស្កេន QR Code! កំពុងពិនិត្យទីតាំងសម្រាប់ ${action}...`;
-                    checkUserLocation(action);
-                } else {
-                    throw new Error('Invalid QR code format.');
-                }
-            } catch (error) {
-                console.error("QR Scan Error:", error);
-                attendanceStatus.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
-                attendanceStatus.classList.add('bg-red-900', 'text-red-300');
-            }
-        }
 
-        function checkUserLocation(action) {
-            if (!navigator.geolocation) {
-                attendanceStatus.textContent = 'Error: Geolocation is not supported by your browser.';
-                attendanceStatus.classList.add('bg-red-900', 'text-red-300');
-                return;
-            }
+        comboboxInput.addEventListener('focus', () => comboboxOptions.classList.remove('hidden'));
+        comboboxInput.addEventListener('blur', () => setTimeout(() => comboboxOptions.classList.add('hidden'), 200));
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const userCoords = [position.coords.latitude, position.coords.longitude];
-                    const isInArea = isPointInPolygon(userCoords, allowedAreaCoords);
-                    const timestamp = new Date();
-
-                    if (isInArea) {
-                        attendanceStatus.textContent = `${action} បានជោគជ័យ! អ្នកស្ថិតនៅក្នុងតំបន់ដែលបានអនុញ្ញាត។`;
-                        attendanceStatus.classList.remove('bg-red-900', 'text-red-300');
-                        attendanceStatus.classList.add('bg-green-900', 'text-green-300');
-                        logAttendance(action, timestamp);
-                        saveAttendanceToSheet(currentEmployee, action, timestamp, userCoords);
-                    } else {
-                        attendanceStatus.textContent = `${action} បរាជ័យ! អ្នកមិនស្ថិតនៅក្នុងតំបន់ដែលបានកំណត់ទេ។`;
-                        attendanceStatus.classList.remove('bg-green-900', 'text-green-300');
-                        attendanceStatus.classList.add('bg-red-900', 'text-red-300');
-                    }
-                },
-                (error) => {
-                    console.error("Geolocation error:", error);
-                    attendanceStatus.textContent = 'Error: មិនអាចទាញយកទីតាំងបច្ចុប្បន្នបានទេ។ សូមប្រាកដថាអ្នកបានអនុញ្ញាត Location Access។';
-                    attendanceStatus.classList.add('bg-red-900', 'text-red-300');
-                },
-                { enableHighAccuracy: true }
+        comboboxInput.addEventListener('input', () => {
+            const filter = comboboxInput.value.toLowerCase();
+            const filteredEmployees = employees.filter(emp => 
+                emp.name.toLowerCase().includes(filter) || emp.id.toLowerCase().includes(filter)
             );
-        }
+            populateCombobox(filteredEmployees);
+            comboboxOptions.classList.remove('hidden');
+        });
 
-        function isPointInPolygon(point, polygon) {
-            const [x, y] = point;
-            let isInside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const [xi, yi] = polygon[i];
-                const [xj, yj] = polygon[j];
-                const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                if (intersect) isInside = !isInside;
-            }
-            return isInside;
-        }
+        // --- Face Verification Logic ---
+        async function handleEmployeeSelection(employeeId) {
+            selectedEmployee = employees.find(emp => emp.id === employeeId);
+            if (!selectedEmployee) return;
 
-        function logAttendance(action, timestamp) {
-            const timeString = timestamp.toLocaleTimeString('en-GB'); // e.g., 14:30:55
-            
-            const logItem = document.createElement('li');
-            logItem.className = 'text-sm text-gray-300 mb-1';
-            
-            const actionColor = action === 'Check In' ? 'text-green-400' : 'text-red-400';
-            logItem.innerHTML = `[${timeString}] - <span class="font-semibold ${actionColor}">${action}</span>`;
-            
-            attendanceLog.appendChild(logItem);
-            attendanceLog.scrollTop = attendanceLog.scrollHeight;
-            lastAction = action; // Update the last action state
-            
-            // Prepare for the next scan
-            if(html5QrCode && !html5QrCode.isScanning) {
-                setTimeout(startQrScanner, 2000); // Restart scanner after 2 seconds
-            }
-        }
-
-        async function saveAttendanceToSheet(employee, action, timestamp, coords) {
-            if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
-                console.warn('Google Apps Script URL is not set. Skipping save.');
-                const statusDiv = document.createElement('div');
-                statusDiv.textContent = 'Warning: មិនបានតំឡើង URL សម្រាប់រក្សាទុកទិន្នន័យទេ។';
-                statusDiv.className = 'text-center text-sm text-orange-400 mt-2';
-                attendanceStatus.insertAdjacentElement('afterend', statusDiv);
-                setTimeout(() => statusDiv.remove(), 4000);
-                return;
-            }
-
-            const statusDiv = document.createElement('div');
-            statusDiv.textContent = 'កំពុងរក្សាទុកទិន្នន័យ...';
-            statusDiv.className = 'text-center text-sm text-gray-400 mt-2';
-            attendanceStatus.insertAdjacentElement('afterend', statusDiv);
-
-            // We use a plain object for JSON stringify because Apps Script web apps
-            // work best with JSON payloads or query parameters.
-            const payload = {
-                timestamp: timestamp.toISOString(),
-                employeeId: employee.id,
-                employeeName: employee.name,
-                action: action,
-                latitude: coords[0],
-                longitude: coords[1],
-            };
+            verificationMessageDiv.textContent = 'កំពុងរៀបចំកាមេរ៉ា...';
+            verificationVideoContainer.classList.remove('hidden');
 
             try {
-                // Sending data as a JSON payload
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // Important for simple POST requests to Apps Script
-                    cache: 'no-cache',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
-                    redirect: 'follow',
-                });
+                // IMPORTANT: The image URL must be publicly accessible and allow cross-origin requests (CORS).
+                // Google Drive/Photos links might not work directly.
+                const referenceImage = await faceapi.fetchImage(selectedEmployee.photoUrl);
+                const referenceDescriptor = await faceapi.detectSingleFace(referenceImage).withFaceLandmarks().withFaceDescriptor();
 
-                // Since we use no-cors, we can't read the response. We assume success.
-                statusDiv.textContent = 'បានបញ្ជូនទិន្នន័យសម្រាប់រក្សាទុក។';
-                statusDiv.classList.remove('text-gray-400');
-                statusDiv.classList.add('text-green-400');
+                if (!referenceDescriptor) {
+                    verificationMessageDiv.textContent = 'មិនអាចស្វែងរកមុខក្នុងរូបថតយោងបានទេ។';
+                    return;
+                }
 
+                startVerificationCamera(referenceDescriptor);
             } catch (error) {
-                console.error('Failed to save attendance:', error);
-                statusDiv.textContent = 'Error: មិនអាចរក្សាទុកទិន្នន័យបានទេ។';
-                statusDiv.classList.remove('text-gray-400');
-                statusDiv.classList.add('text-red-400');
-            } finally {
-                setTimeout(() => statusDiv.remove(), 3000);
+                console.error("Error processing reference image:", error);
+                verificationMessageDiv.textContent = 'URL រូបថតមិនត្រឹមត្រូវ ឬមានបញ្ហា CORS។';
+            }
+        }
+        
+        async function startVerificationCamera(referenceDescriptor) {
+            stopAllStreams();
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                verificationVideo.srcObject = currentStream;
+                verificationMessageDiv.textContent = 'សូមដាក់មុខឲ្យចំកាមេរ៉ា';
+
+                const intervalId = setInterval(async () => {
+                    if(!currentStream) { // Stop if stream was cancelled
+                        clearInterval(intervalId);
+                        return;
+                    }
+                    const detections = await faceapi.detectSingleFace(verificationVideo).withFaceLandmarks().withFaceDescriptor();
+                    if (detections) {
+                        const faceMatcher = new faceapi.FaceMatcher(referenceDescriptor);
+                        const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
+
+                        if (bestMatch.label !== 'unknown') {
+                            verificationMessageDiv.textContent = 'ផ្ទៀងផ្ទាត់ជោគជ័យ!';
+                            clearInterval(intervalId);
+                            stopAllStreams();
+                            verificationStep.classList.add('hidden');
+                            displayCheckInOutStep();
+                        } else {
+                            verificationMessageDiv.textContent = 'មុខមិនត្រូវគ្នា សូមព្យាយាមម្តងទៀត';
+                        }
+                    }
+                }, 1000);
+            } catch (err) {
+                verificationMessageDiv.textContent = 'មិនអាចបើកកាមេរ៉ាបានទេ។ សូមអនុញ្ញាតឱ្យ Browser ប្រើប្រាស់កាមេរ៉ា។';
+                console.error("Camera access error:", err);
+            }
+        }
+        
+        // --- QR & Geolocation Logic ---
+        function displayCheckInOutStep() {
+            document.getElementById('employee-photo').src = selectedEmployee.photoUrl;
+            document.getElementById('employee-name-display').textContent = selectedEmployee.name;
+            document.getElementById('employee-id-display').textContent = `ID: ${selectedEmployee.id}`;
+            updateLogDisplay();
+            checkInOutStep.classList.remove('hidden');
+            startQRScanner();
+        }
+
+        async function startQRScanner() {
+            messageDiv.textContent = 'កំពុងបើកកាមេរ៉ាដើម្បីស្កេន QR Code...';
+            messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
+            stopAllStreams();
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
+                qrVideo.srcObject = currentStream;
+                qrVideo.play();
+                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+                qrScanner = requestAnimationFrame(tick);
+            } catch (err) {
+                 messageDiv.textContent = 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។';
+                 console.error("Rear camera error:", err);
             }
         }
 
-        // --- QR CODE GENERATOR ---
-        function generateLocationQrCode() {
-            const qrDataString = JSON.stringify(locationDataForQR);
-            QRCode.toCanvas(qrcodeCanvas, qrDataString, { width: 200 }, function (error) {
-                if (error) console.error(error);
+        function tick() {
+            if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                const canvasElement = document.createElement('canvas');
+                const canvas = canvasElement.getContext('2d');
+                canvasElement.height = qrVideo.videoHeight;
+                canvasElement.width = qrVideo.videoWidth;
+                canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    handleQRCode(code.data);
+                    return; 
+                }
+            }
+            qrScanner = requestAnimationFrame(tick);
+        }
+
+        function handleQRCode(qrData) {
+            cancelAnimationFrame(qrScanner);
+            stopAllStreams();
+            messageDiv.textContent = 'បានស្កេន QR Code! កំពុងពិនិត្យទីតាំង...';
+            
+            try {
+                const allowedAreaCoords = JSON.parse(qrData);
+                 if (!Array.isArray(allowedAreaCoords)) throw new Error("Invalid QR data format");
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userCoords = [position.coords.latitude, position.coords.longitude];
+                        if (isPointInPolygon(userCoords, allowedAreaCoords)) {
+                            submitAttendance();
+                        } else {
+                            messageDiv.textContent = 'អ្នកមិនស្ថិតនៅក្នុងទីតាំងដែលបានអនុញ្ញាតទេ។';
+                            messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                        }
+                    },
+                    (error) => {
+                        messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។ សូមអនុញ្ញាតឲ្យ Browser ប្រើប្រាស់ទីតាំង។';
+                        messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                        console.error("Geolocation error:", error);
+                    },
+                    { enableHighAccuracy: true }
+                );
+            } catch (e) {
+                messageDiv.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
+                messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                console.error("QR Code parse error:", e);
+            }
+        }
+        
+        // --- Data Submission ---
+        function submitAttendance() {
+            const lastLog = getTodaysLog().pop();
+            const action = (!lastLog || lastLog.action === 'Check Out') ? 'Check In' : 'Check Out';
+
+            messageDiv.textContent = `កំពុងបញ្ជូន ${action}...`;
+            messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
+
+            navigator.geolocation.getCurrentPosition(position => {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    employeeId: selectedEmployee.id,
+                    employeeName: selectedEmployee.name,
+                    action: action,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    userAgent: navigator.userAgent
+                };
+
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        messageDiv.textContent = `${action} បានកត់ត្រាដោយជោគជ័យ!`;
+                        messageDiv.className = 'text-center mt-4 h-12 text-green-500';
+                        saveLog(action);
+                        updateLogDisplay();
+                    } else {
+                        // Display the specific error message from the Apps Script
+                        messageDiv.textContent = result.message || 'An unknown error occurred.';
+                        messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error submitting attendance:', error);
+                    messageDiv.textContent = `មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។`;
+                    messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                });
             });
         }
         
-        // --- LOGOUT ---
-        logoutBtn.addEventListener('click', () => {
-            stopQrScanner();
-            currentEmployee = null;
-            faceMatcher = null;
-            lastAction = null;
-            attendanceLog.innerHTML = '';
-            attendanceStatus.textContent = '';
-            attendanceStatus.className = 'mt-6 text-center text-lg p-4 rounded-lg';
-            employeeInput.value = '';
-            referencePhoto.src = 'https://placehold.co/100x100/374151/FFFFFF?text=រូបថត';
+        // --- Local Log for UI ---
+        function saveLog(action) {
+            const logs = JSON.parse(localStorage.getItem('attendanceLogs') || '{}');
+            const today = new Date().toISOString().slice(0, 10);
+            if (!logs[selectedEmployee.id]) logs[selectedEmployee.id] = {};
+            if (!logs[selectedEmployee.id][today]) logs[selectedEmployee.id][today] = [];
 
-            attendanceStep.classList.add('hidden');
+            const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit'});
+            logs[selectedEmployee.id][today].push({ action, time });
+            localStorage.setItem('attendanceLogs', JSON.stringify(logs));
+        }
+
+        function getTodaysLog() {
+            if (!selectedEmployee) return [];
+            const logs = JSON.parse(localStorage.getItem('attendanceLogs') || '{}');
+            const today = new Date().toISOString().slice(0, 10);
+            return (logs[selectedEmployee.id] && logs[selectedEmployee.id][today]) ? logs[selectedEmployee.id][today] : [];
+        }
+
+        function updateLogDisplay() {
+            const todaysLog = getTodaysLog();
+            if (todaysLog.length === 0) {
+                logContent.innerHTML = '<p class="text-gray-400">មិនទាន់មានកំណត់ត្រាសម្រាប់ថ្ងៃនេះ</p>';
+            } else {
+                logContent.innerHTML = todaysLog.map(log => `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-semibold ${log.action === 'Check In' ? 'text-green-400' : 'text-orange-400'}">${log.action}</span>
+                        <span>${log.time}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // --- Utility Functions ---
+        function isPointInPolygon(point, polygon) {
+            let x = point[0], y = point[1];
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                let xi = polygon[i][0], yi = polygon[i][1];
+                let xj = polygon[j][0], yj = polygon[j][1];
+                let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+        
+        function stopAllStreams() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            if (qrScanner) {
+                cancelAnimationFrame(qrScanner);
+                qrScanner = null;
+            }
+        }
+
+        // --- Initialization ---
+        async function initialize() {
+            // Check for insecure context which can block camera access
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                loadingScreen.innerHTML = `
+                    <div class="bg-red-900 border border-red-600 p-6 rounded-lg">
+                        <h2 class="text-xl font-semibold text-red-300">បញ្ហាសុវត្ថិភាព</h2>
+                        <p class="mt-2 text-red-200">កម្មវិធីនេះត្រូវតែដំណើរការលើ HTTPS ឬ localhost ដើម្បីអាចប្រើប្រាស់កាមេរ៉ាបាន។</p>
+                    </div>
+                `;
+                return;
+            }
+
+            loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/';
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+            } catch (error) {
+                 loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
+                 console.error("Model loading error:", error);
+                 return;
+            }
+            
+            await fetchEmployeeData();
+            
+            loadingScreen.classList.add('hidden');
             verificationStep.classList.remove('hidden');
-            statusText.textContent = 'រួចរាល់! សូមជ្រើសរើសបុគ្គលិក។';
-        });
 
+            // Admin check
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('role') === 'admin') {
+                const allowedAreaCoords = [
+                    [11.413680442561867, 104.76339216308112],
+                    [11.414127010981806, 104.76265983159293],
+                    [11.413509327373639, 104.76218296457736],
+                    [11.412874948214588, 104.76308560571397]
+                ];
+                adminQrGenerator.classList.remove('hidden');
+                new QRCode(document.getElementById("qrcode"), JSON.stringify(allowedAreaCoords));
+            }
+        }
+
+        initialize();
     </script>
 </body>
 </html>
-
 
 
