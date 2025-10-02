@@ -153,6 +153,19 @@
         const GOOGLE_SHEET_NAME = 'DIList';
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
         
+        // --- NEW: Sound Helper ---
+        function speak(text) {
+            try {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'km-KH'; // Set language to Khmer
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch (error) {
+                console.error("Text-to-speech failed:", error);
+            }
+        }
+
         // --- UI Helper ---
         function showMessage(element, text, type = 'info') {
             let color = 'text-slate-400';
@@ -267,6 +280,12 @@
                         if (bestMatch.label !== 'unknown') {
                             showMessage(allElements.verificationMessageDiv, 'ផ្ទៀងផ្ទាត់ជោគជ័យ!', 'success');
                             clearInterval(intervalId);
+                            
+                            // --- NEW: Save user session to localStorage ---
+                            const today = new Date().toISOString().slice(0, 10);
+                            const userSession = { ...selectedEmployee, verificationDate: today };
+                            localStorage.setItem('verifiedUser', JSON.stringify(userSession));
+
                             setTimeout(() => {
                                 stopAllStreams();
                                 allElements.verificationStep.classList.add('hidden');
@@ -302,6 +321,7 @@
                       currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
                  } catch (fallbackErr) {
                       showMessage(allElements.messageDiv, 'បរាជ័យក្នុងការបើកកាមេរ៉ា។', 'error');
+                      speak('ស្កេន បរាជ័យ');
                       return;
                  }
             }
@@ -345,17 +365,20 @@
                             submitAttendance();
                         } else {
                             showMessage(allElements.messageDiv, 'អ្នកមិនស្ថិតនៅទីតាំងដែលបានអនុញ្ញាតទេ។', 'error');
+                            speak('ស្កេន បរាជ័យ');
                             setTimeout(startQRScanner, 3000);
                         }
                     },
                     (error) => {
                         showMessage(allElements.messageDiv, 'មិនអាចទទួលបានទីតាំង GPS។', 'error');
+                        speak('ស្កេន បរាជ័យ');
                         setTimeout(startQRScanner, 3000);
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } catch (e) {
                 showMessage(allElements.messageDiv, 'QR Code មិនត្រឹមត្រូវទេ។', 'error');
+                speak('ស្កេន បរាជ័យ');
                 setTimeout(startQRScanner, 3000);
             }
         }
@@ -377,22 +400,35 @@
                     userAgent: navigator.userAgent
                 };
 
-                fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' }) // Use no-cors for this type of redirect response
-                .then(response => {
-                    // Because Apps Script POST redirects, we can't read the response directly.
-                    // We optimistically assume success and let the backend handle validation.
-                    // To get the real message, the Apps script would need a more complex setup.
-                    // For this app, we will simulate the success based on action.
-                    const mockSuccessMessage = action === 'Check In' ? 'Check In បានកត់ត្រាដោយជោគជ័យ។' : 'Check Out បានកត់ត្រាដោយជោគជ័យ។';
-                    showMessage(allElements.messageDiv, mockSuccessMessage, 'success');
-                    saveLog(action);
-                    updateLogDisplay();
-                    allElements.videoContainer.classList.add('hidden');
-                    allElements.startOverButton.classList.remove('hidden');
-
+                // --- UPDATED: Proper fetch with response handling ---
+                fetch(SCRIPT_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify(data),
+                    headers: { 'Content-Type': 'application/json' },
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        showMessage(allElements.messageDiv, result.message, 'success');
+                        if (action === 'Check In') {
+                            speak('បាន ស្កេន ចូល');
+                        } else {
+                            speak('បាន ស្កេន ចេញ');
+                        }
+                        saveLog(action);
+                        updateLogDisplay();
+                        allElements.videoContainer.classList.add('hidden');
+                        allElements.startOverButton.classList.remove('hidden');
+                    } else {
+                        // Handle logical errors from backend (e.g., wrong time)
+                        showMessage(allElements.messageDiv, result.message, 'error');
+                        speak('ស្កេន បរាជ័យ');
+                        setTimeout(startQRScanner, 3000); // Allow retry
+                    }
                 }).catch(error => {
-                    // This will likely catch network errors, not script logic errors.
+                    // Handle network errors
                     showMessage(allElements.messageDiv, 'មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។', 'error');
+                    speak('ស្កេន បរាជ័យ');
                     setTimeout(startQRScanner, 3000);
                 });
             });
@@ -432,6 +468,8 @@
         
         // --- Start Over Flow ---
         function startOver() {
+            // --- NEW: Clear user session ---
+            localStorage.removeItem('verifiedUser');
             stopAllStreams();
             allElements.checkInOutStep.classList.add('hidden');
             allElements.verificationStep.classList.remove('hidden');
@@ -488,9 +526,25 @@
             }
             
             await fetchEmployeeData();
-            
-            allElements.loadingScreen.classList.add('hidden');
-            allElements.verificationStep.classList.remove('hidden');
+
+            // --- NEW: Check for existing user session ---
+            const savedUser = localStorage.getItem('verifiedUser');
+            const today = new Date().toISOString().slice(0, 10);
+            if (savedUser) {
+                const userSession = JSON.parse(savedUser);
+                if (userSession.verificationDate === today) {
+                    selectedEmployee = userSession;
+                    allElements.loadingScreen.classList.add('hidden');
+                    displayCheckInOutStep(); // Skip verification
+                } else {
+                    localStorage.removeItem('verifiedUser'); // Clear outdated session
+                    allElements.loadingScreen.classList.add('hidden');
+                    allElements.verificationStep.classList.remove('hidden');
+                }
+            } else {
+                 allElements.loadingScreen.classList.add('hidden');
+                 allElements.verificationStep.classList.remove('hidden');
+            }
 
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('role') === 'admin') {
