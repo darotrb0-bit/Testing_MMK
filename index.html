@@ -157,6 +157,7 @@
         function speak(text) {
             try {
                 if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Cancel any previous speech
                     const utterance = new SpeechSynthesisUtterance(text);
                     utterance.lang = 'km-KH'; // Set language to Khmer
                     window.speechSynthesis.speak(utterance);
@@ -183,7 +184,7 @@
             element.innerHTML = `
                 <div class="flex items-center justify-center gap-2 ${color} transition-all duration-300">
                     <i data-lucide="${icon}" class="${type === 'loading' ? 'animate-spin' : ''} w-5 h-5"></i>
-                    <span class="font-medium">${text}</span>
+                    <span class="font-medium text-center">${text}</span>
                 </div>
             `;
             lucide.createIcons();
@@ -281,7 +282,6 @@
                             showMessage(allElements.verificationMessageDiv, 'ផ្ទៀងផ្ទាត់ជោគជ័យ!', 'success');
                             clearInterval(intervalId);
                             
-                            // --- NEW: Save user session to localStorage ---
                             const today = new Date().toISOString().slice(0, 10);
                             const userSession = { ...selectedEmployee, verificationDate: today };
                             localStorage.setItem('verifiedUser', JSON.stringify(userSession));
@@ -320,8 +320,9 @@
                  try {
                       currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
                  } catch (fallbackErr) {
-                      showMessage(allElements.messageDiv, 'បរាជ័យក្នុងការបើកកាមេរ៉ា។', 'error');
-                      speak('ស្កេន បរាជ័យ');
+                      const errorMsg = 'បរាជ័យក្នុងការបើកកាមេរ៉ា។';
+                      showMessage(allElements.messageDiv, errorMsg, 'error');
+                      speak(errorMsg);
                       return;
                  }
             }
@@ -364,22 +365,25 @@
                             stopAllStreams();
                             submitAttendance();
                         } else {
-                            showMessage(allElements.messageDiv, 'អ្នកមិនស្ថិតនៅទីតាំងដែលបានអនុញ្ញាតទេ។', 'error');
-                            speak('ស្កេន បរាជ័យ');
-                            setTimeout(startQRScanner, 3000);
+                            const errorMsg = 'អ្នកមិនស្ថិតនៅទីតាំងដែលបានអនុញ្ញាតទេ។';
+                            showMessage(allElements.messageDiv, errorMsg, 'error');
+                            speak(errorMsg);
+                            setTimeout(startQRScanner, 4000);
                         }
                     },
                     (error) => {
-                        showMessage(allElements.messageDiv, 'មិនអាចទទួលបានទីតាំង GPS។', 'error');
-                        speak('ស្កេន បរាជ័យ');
-                        setTimeout(startQRScanner, 3000);
+                        const errorMsg = 'មិនអាចទទួលបានទីតាំង GPS។';
+                        showMessage(allElements.messageDiv, errorMsg, 'error');
+                        speak(errorMsg);
+                        setTimeout(startQRScanner, 4000);
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } catch (e) {
-                showMessage(allElements.messageDiv, 'QR Code មិនត្រឹមត្រូវទេ។', 'error');
-                speak('ស្កេន បរាជ័យ');
-                setTimeout(startQRScanner, 3000);
+                const errorMsg = 'QR Code មិនត្រឹមត្រូវទេ។';
+                showMessage(allElements.messageDiv, errorMsg, 'error');
+                speak(errorMsg);
+                setTimeout(startQRScanner, 4000);
             }
         }
         
@@ -400,7 +404,6 @@
                     userAgent: navigator.userAgent
                 };
 
-                // --- UPDATED: Proper fetch with response handling ---
                 fetch(SCRIPT_URL, { 
                     method: 'POST', 
                     body: JSON.stringify(data),
@@ -420,16 +423,15 @@
                         allElements.videoContainer.classList.add('hidden');
                         allElements.startOverButton.classList.remove('hidden');
                     } else {
-                        // Handle logical errors from backend (e.g., wrong time)
                         showMessage(allElements.messageDiv, result.message, 'error');
-                        speak('ស្កេន បរាជ័យ');
-                        setTimeout(startQRScanner, 3000); // Allow retry
+                        speak(result.message); // Speak the detailed error from backend
+                        setTimeout(startQRScanner, 4000); // Allow retry with longer delay
                     }
                 }).catch(error => {
-                    // Handle network errors
-                    showMessage(allElements.messageDiv, 'មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។', 'error');
-                    speak('ស្កេន បរាជ័យ');
-                    setTimeout(startQRScanner, 3000);
+                    const errorMsg = 'មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។';
+                    showMessage(allElements.messageDiv, errorMsg, 'error');
+                    speak(errorMsg);
+                    setTimeout(startQRScanner, 4000);
                 });
             });
         }
@@ -468,7 +470,6 @@
         
         // --- Start Over Flow ---
         function startOver() {
-            // --- NEW: Clear user session ---
             localStorage.removeItem('verifiedUser');
             stopAllStreams();
             allElements.checkInOutStep.classList.add('hidden');
@@ -527,7 +528,6 @@
             
             await fetchEmployeeData();
 
-            // --- NEW: Check for existing user session ---
             const savedUser = localStorage.getItem('verifiedUser');
             const today = new Date().toISOString().slice(0, 10);
             if (savedUser) {
@@ -535,9 +535,9 @@
                 if (userSession.verificationDate === today) {
                     selectedEmployee = userSession;
                     allElements.loadingScreen.classList.add('hidden');
-                    displayCheckInOutStep(); // Skip verification
+                    displayCheckInOutStep(); 
                 } else {
-                    localStorage.removeItem('verifiedUser'); // Clear outdated session
+                    localStorage.removeItem('verifiedUser'); 
                     allElements.loadingScreen.classList.add('hidden');
                     allElements.verificationStep.classList.remove('hidden');
                 }
