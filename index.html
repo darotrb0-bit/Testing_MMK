@@ -80,9 +80,6 @@
                 </div>
             </div>
 
-            <button id="verify-btn" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed">
-                ចាប់ផ្តើមផ្ទៀងផ្ទាត់ផ្ទៃមុខ
-            </button>
             <div id="status-text" class="text-center mt-4 text-yellow-400"></div>
         </div>
 
@@ -90,17 +87,9 @@
         <div id="attendance-step" class="hidden">
             <h1 class="text-3xl font-bold text-center text-green-400 mb-2">ប្រព័ន្ធវត្តមាន</h1>
             <p id="welcome-message" class="text-center text-gray-300 mb-6"></p>
+            <p id="next-action-text" class="text-center text-yellow-400 mb-4"></p>
             
             <div id="qr-reader" class="w-full rounded-lg overflow-hidden mb-4" style="display: none;"></div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <button id="check-in-btn" data-action="Check In" class="action-btn bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
-                    ស្កេន Check In
-                </button>
-                <button id="check-out-btn" data-action="Check Out" class="action-btn bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
-                    ស្កេន Check Out
-                </button>
-            </div>
 
             <div id="attendance-status" class="mt-6 text-center text-lg p-4 rounded-lg"></div>
             
@@ -116,8 +105,8 @@
             </button>
         </div>
 
-        <!-- ផ្ទាំងសម្រាប់បង្កើត QR Code -->
-        <div id="qr-generator-section" class="mt-8 border-t border-gray-700 pt-6">
+        <!-- ផ្ទាំងសម្រាប់បង្កើត QR Code (Admin Only) -->
+        <div id="qr-generator-section" class="mt-8 border-t border-gray-700 pt-6 hidden">
             <h2 class="text-xl text-center text-gray-400"> QR Code សម្រាប់ទីតាំង</h2>
             <div class="flex justify-center my-4">
                  <canvas id="qrcode-canvas"></canvas>
@@ -142,21 +131,22 @@
         const referencePhoto = document.getElementById('reference-photo');
         const videoContainer = document.getElementById('video-container');
         const video = document.getElementById('video');
-        const verifyBtn = document.getElementById('verify-btn');
         const statusText = document.getElementById('status-text');
         const welcomeMessage = document.getElementById('welcome-message');
         const attendanceStatus = document.getElementById('attendance-status');
         const attendanceLog = document.getElementById('attendance-log');
         const logoutBtn = document.getElementById('logout-btn');
         const qrcodeCanvas = document.getElementById('qrcode-canvas');
-        const actionButtons = document.querySelectorAll('.action-btn');
         const qrReaderDiv = document.getElementById('qr-reader');
+        const nextActionText = document.getElementById('next-action-text');
+
 
         // --- STATE VARIABLES ---
         let currentEmployee = null;
         let faceMatcher = null;
         let stream = null;
         let html5QrCode = null;
+        let lastAction = null;
 
         // --- LOCATION CONFIGURATION ---
         const allowedAreaCoords = [
@@ -173,16 +163,24 @@
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', async () => {
+            setupAdminView();
             generateLocationQrCode();
             // Fetch data from Google Sheet first, then load face models
             await fetchEmployeeData();
             await loadFaceApiModels();
         });
+        
+        function setupAdminView() {
+            const qrGeneratorSection = document.getElementById('qr-generator-section');
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('role') === 'admin') {
+                qrGeneratorSection.classList.remove('hidden');
+            }
+        }
 
         async function fetchEmployeeData() {
             const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
             statusText.textContent = 'កំពុងទាញទិន្នន័យបុគ្គលិក...';
-            verifyBtn.disabled = true;
 
             try {
                 const response = await fetch(url);
@@ -228,7 +226,6 @@
 
         async function loadFaceApiModels() {
             statusText.textContent = 'កំពុងទាញយក Model...';
-            verifyBtn.disabled = true;
             try {
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights'),
@@ -251,7 +248,6 @@
             if (selectedEmployee) {
                 currentEmployee = selectedEmployee;
                 referencePhoto.src = currentEmployee.photoUrl;
-                verifyBtn.disabled = true;
                 statusText.textContent = `កំពុងរៀបចំសម្រាប់ ${currentEmployee.name}...`;
                 
                 try {
@@ -260,8 +256,8 @@
                     if (results) {
                         const labeledDescriptors = [new faceapi.LabeledFaceDescriptors(currentEmployee.id, [results.descriptor])];
                         faceMatcher = new faceapi.FaceMatcher(labeledDescriptors);
-                        statusText.textContent = 'រួចរាល់ក្នុងការផ្ទៀងផ្ទាត់។';
-                        verifyBtn.disabled = false;
+                        statusText.textContent = 'បានរៀបចំរួចរាល់។ កំពុងចាប់ផ្តើមផ្ទៀងផ្ទាត់...';
+                        await startFaceVerification(); // Automatically start verification
                     } else {
                         throw new Error('No face detected in reference photo.');
                     }
@@ -273,12 +269,11 @@
             } else {
                 currentEmployee = null;
                 referencePhoto.src = 'https://placehold.co/100x100/374151/FFFFFF?text=រូបថត';
-                verifyBtn.disabled = true;
                 statusText.textContent = 'សូមជ្រើសរើសបុគ្គលិក។';
             }
         });
 
-        verifyBtn.addEventListener('click', async () => {
+        async function startFaceVerification() {
             if (!currentEmployee || !faceMatcher) return;
             
             statusText.innerHTML = '<div class="loader mx-auto"></div><p>សូមបើកកាមេរ៉ា...</p>';
@@ -311,7 +306,7 @@
                     }
                 }, 500);
             };
-        });
+        }
 
         function handleSuccessfulVerification() {
             statusText.textContent = 'ផ្ទៀងផ្ទាត់បានជោគជ័យ!';
@@ -325,6 +320,7 @@
                 statusText.classList.remove('text-green-400');
                 statusText.textContent = '';
                 videoContainer.classList.add('hidden');
+                startQrScanner();
             }, 1500);
         }
 
@@ -337,30 +333,22 @@
         }
 
         // --- QR SCANNING & LOCATION CHECK ---
-        actionButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const action = button.dataset.action;
-                startQrScanner(action);
-            });
-        });
-
-        function startQrScanner(action) {
+        function startQrScanner() {
             attendanceStatus.textContent = '';
             attendanceStatus.className = 'mt-6 text-center text-lg p-4 rounded-lg';
             qrReaderDiv.style.display = 'block';
+            
+            const nextAction = (lastAction === 'Check In') ? 'Check Out' : 'Check In';
+            nextActionText.textContent = `ការស្កេនបន្ទាប់នឹងត្រូវកត់ត្រាជា: ${nextAction}`;
 
             html5QrCode = new Html5Qrcode("qr-reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            // Start scanning with the back camera
             html5QrCode.start({ facingMode: "environment" }, config, 
                 (decodedText, decodedResult) => {
-                    // Success callback
-                    handleQrScanSuccess(decodedText, action);
+                    handleQrScanSuccess(decodedText);
                 },
-                (errorMessage) => {
-                    // Error callback, can be ignored
-                }
+                (errorMessage) => { /* ignore */ }
             ).catch((err) => {
                 console.error("Unable to start scanning.", err);
                 attendanceStatus.textContent = `Error: មិនអាចបើកកាមេរ៉ាក្រោយបានទេ។`;
@@ -379,12 +367,13 @@
             }
         }
         
-        function handleQrScanSuccess(decodedText, action) {
+        function handleQrScanSuccess(decodedText) {
             stopQrScanner();
             try {
                 const qrData = JSON.parse(decodedText);
                 if (qrData.type === 'attendance-location') {
-                    attendanceStatus.textContent = 'បានស្កេន QR Code! កំពុងពិនិត្យទីតាំង...';
+                    const action = (lastAction === 'Check In') ? 'Check Out' : 'Check In';
+                    attendanceStatus.textContent = `បានស្កេន QR Code! កំពុងពិនិត្យទីតាំងសម្រាប់ ${action}...`;
                     checkUserLocation(action);
                 } else {
                     throw new Error('Invalid QR code format.');
@@ -452,6 +441,12 @@
             
             attendanceLog.appendChild(logItem);
             attendanceLog.scrollTop = attendanceLog.scrollHeight;
+            lastAction = action; // Update the last action state
+            
+            // Prepare for the next scan
+            if(html5QrCode && !html5QrCode.isScanning) {
+                setTimeout(startQrScanner, 2000); // Restart scanner after 2 seconds
+            }
         }
 
         // --- QR CODE GENERATOR ---
@@ -464,8 +459,10 @@
         
         // --- LOGOUT ---
         logoutBtn.addEventListener('click', () => {
+            stopQrScanner();
             currentEmployee = null;
             faceMatcher = null;
+            lastAction = null;
             attendanceLog.innerHTML = '';
             attendanceStatus.textContent = '';
             attendanceStatus.className = 'mt-6 text-center text-lg p-4 rounded-lg';
@@ -480,4 +477,5 @@
     </script>
 </body>
 </html>
+
 
