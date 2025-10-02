@@ -190,9 +190,8 @@
 
             try {
                 // IMPORTANT: The image URL must be publicly accessible and allow cross-origin requests (CORS).
-                // Google Drive/Photos links might not work directly.
                 const referenceImage = await faceapi.fetchImage(selectedEmployee.photoUrl);
-                const referenceDescriptor = await faceapi.detectSingleFace(referenceImage).withFaceLandmarks().withFaceDescriptor();
+                const referenceDescriptor = await faceapi.detectSingleFace(referenceImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
 
                 if (!referenceDescriptor) {
                     verificationMessageDiv.textContent = 'មិនអាចស្វែងរកមុខក្នុងរូបថតយោងបានទេ។';
@@ -218,7 +217,7 @@
                         clearInterval(intervalId);
                         return;
                     }
-                    const detections = await faceapi.detectSingleFace(verificationVideo).withFaceLandmarks().withFaceDescriptor();
+                    const detections = await faceapi.detectSingleFace(verificationVideo, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                     if (detections) {
                         const faceMatcher = new faceapi.FaceMatcher(referenceDescriptor);
                         const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
@@ -466,5 +465,4 @@
     </script>
 </body>
 </html>
-
 
