@@ -404,17 +404,18 @@
                     userAgent: navigator.userAgent
                 };
 
-                // --- FIX: Use a CORS proxy to prevent request blocking ---
                 const proxyUrl = 'https://corsproxy.io/?';
                 const proxiedScriptUrl = `${proxyUrl}${encodeURIComponent(SCRIPT_URL)}`;
 
-                fetch(proxiedScriptUrl, { // Use the proxied URL
+                fetch(proxiedScriptUrl, {
                     method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json', // CRITICAL FIX
+                    },
                     body: JSON.stringify(data),
                 })
                 .then(response => {
                     if (!response.ok) {
-                        // If the proxy or script returns a server error, it will be caught below
                         throw new Error(`Server error: ${response.statusText}`);
                     }
                     return response.json();
@@ -432,13 +433,11 @@
                         allElements.videoContainer.classList.add('hidden');
                         allElements.startOverButton.classList.remove('hidden');
                     } else {
-                        // This block should now execute correctly for logical errors
                         showMessage(allElements.messageDiv, result.message, 'error');
-                        speak(result.message); // Speak the detailed error from backend
-                        setTimeout(startQRScanner, 4000); // Allow retry
+                        speak(result.message);
+                        setTimeout(startQRScanner, 4000);
                     }
                 }).catch(error => {
-                    // This block will now handle true network errors or proxy failures
                     console.error("Fetch Error:", error);
                     const errorMsg = 'មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ';
                     showMessage(allElements.messageDiv, errorMsg, 'error');
