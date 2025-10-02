@@ -148,6 +148,10 @@
         let html5QrCode = null;
         let lastAction = null;
 
+        // --- SCRIPT & SHEET CONFIG ---
+        // !!! សំខាន់: សូមប្តូរ URL នេះជាមួយ URL ពី Google Apps Script ដែលអ្នកបាន Deploy !!!
+        const APPS_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
         // --- LOCATION CONFIGURATION ---
         const allowedAreaCoords = [
             [11.413680442561867, 104.76339216308112],
@@ -396,12 +400,14 @@
                 (position) => {
                     const userCoords = [position.coords.latitude, position.coords.longitude];
                     const isInArea = isPointInPolygon(userCoords, allowedAreaCoords);
+                    const timestamp = new Date();
 
                     if (isInArea) {
                         attendanceStatus.textContent = `${action} បានជោគជ័យ! អ្នកស្ថិតនៅក្នុងតំបន់ដែលបានអនុញ្ញាត។`;
                         attendanceStatus.classList.remove('bg-red-900', 'text-red-300');
                         attendanceStatus.classList.add('bg-green-900', 'text-green-300');
-                        logAttendance(action);
+                        logAttendance(action, timestamp);
+                        saveAttendanceToSheet(currentEmployee, action, timestamp, userCoords);
                     } else {
                         attendanceStatus.textContent = `${action} បរាជ័យ! អ្នកមិនស្ថិតនៅក្នុងតំបន់ដែលបានកំណត់ទេ។`;
                         attendanceStatus.classList.remove('bg-green-900', 'text-green-300');
@@ -429,9 +435,8 @@
             return isInside;
         }
 
-        function logAttendance(action) {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('en-GB'); // e.g., 14:30:55
+        function logAttendance(action, timestamp) {
+            const timeString = timestamp.toLocaleTimeString('en-GB'); // e.g., 14:30:55
             
             const logItem = document.createElement('li');
             logItem.className = 'text-sm text-gray-300 mb-1';
@@ -446,6 +451,61 @@
             // Prepare for the next scan
             if(html5QrCode && !html5QrCode.isScanning) {
                 setTimeout(startQrScanner, 2000); // Restart scanner after 2 seconds
+            }
+        }
+
+        async function saveAttendanceToSheet(employee, action, timestamp, coords) {
+            if (APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+                console.warn('Google Apps Script URL is not set. Skipping save.');
+                const statusDiv = document.createElement('div');
+                statusDiv.textContent = 'Warning: មិនបានតំឡើង URL សម្រាប់រក្សាទុកទិន្នន័យទេ។';
+                statusDiv.className = 'text-center text-sm text-orange-400 mt-2';
+                attendanceStatus.insertAdjacentElement('afterend', statusDiv);
+                setTimeout(() => statusDiv.remove(), 4000);
+                return;
+            }
+
+            const statusDiv = document.createElement('div');
+            statusDiv.textContent = 'កំពុងរក្សាទុកទិន្នន័យ...';
+            statusDiv.className = 'text-center text-sm text-gray-400 mt-2';
+            attendanceStatus.insertAdjacentElement('afterend', statusDiv);
+
+            // We use a plain object for JSON stringify because Apps Script web apps
+            // work best with JSON payloads or query parameters.
+            const payload = {
+                timestamp: timestamp.toISOString(),
+                employeeId: employee.id,
+                employeeName: employee.name,
+                action: action,
+                latitude: coords[0],
+                longitude: coords[1],
+            };
+
+            try {
+                // Sending data as a JSON payload
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Important for simple POST requests to Apps Script
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                    redirect: 'follow',
+                });
+
+                // Since we use no-cors, we can't read the response. We assume success.
+                statusDiv.textContent = 'បានបញ្ជូនទិន្នន័យសម្រាប់រក្សាទុក។';
+                statusDiv.classList.remove('text-gray-400');
+                statusDiv.classList.add('text-green-400');
+
+            } catch (error) {
+                console.error('Failed to save attendance:', error);
+                statusDiv.textContent = 'Error: មិនអាចរក្សាទុកទិន្នន័យបានទេ។';
+                statusDiv.classList.remove('text-gray-400');
+                statusDiv.classList.add('text-red-400');
+            } finally {
+                setTimeout(() => statusDiv.remove(), 3000);
             }
         }
 
@@ -477,5 +537,6 @@
     </script>
 </body>
 </html>
+
 
 
