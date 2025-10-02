@@ -185,10 +185,10 @@
             const CRB_LEAVE_SHEET_NAME = 'CRBRequests';
             
             const allowedAreaCoords = [
-                [11.413417364335835, 104.76338844692603],
-                [11.41425221695754, 104.76262151191808],
-                [11.413388294620036, 104.7618466030178],
-                [11.412829039144288, 104.76299619314459]
+                [11.415296921108219, 104.76411630326837],
+                [11.41524959639537, 104.76421353334031],
+                [11.4136513648048, 104.76344030651754],
+                [11.413703948114726, 104.76333502981896]
             ];
 
             // !!! សំខាន់ !!! សូមបង្កើត Google Apps Script ហើយបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
@@ -462,7 +462,7 @@
                     case 'ពេញម៉ោង': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
                     case 'មួយព្រឹក': return { checkInStart: '7:00AM', checkInEnd: '10:04AM', checkOutStart: '11:30AM', checkOutEnd: '1:04PM' };
                     case 'មួយរសៀល': return { checkInStart: '11:00AM', checkInEnd: '1:44PM', checkOutStart: isFriday ? '3:15PM' : '5:30PM', checkOutEnd: '8:04PM' };
-                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '7:44PM', checkOutStart: '7:48PM', checkOutEnd: '10:04PM' };
+                    case 'ពេលយប់': return { checkInStart: '5:45PM', checkInEnd: '6:44PM', checkOutStart: '7:00PM', checkOutEnd: '10:04PM' };
                     default: 
                         if (scheduleType) { console.warn(`Unknown schedule type: '${scheduleType}'`); }
                         return null;
@@ -549,25 +549,33 @@
                     const cannotCheckIn = (leaveStatus === 'មួយព្រឹក' || leaveStatus === 'មួយថ្ងៃ') || (crbLeaveStatus === 'មួយព្រឹក' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់');
                     const cannotCheckOut = (leaveStatus === 'មួយរសៀល' || leaveStatus === 'មួយថ្ងៃ') || (crbLeaveStatus === 'មួយរសៀល' || crbLeaveStatus === 'មួយថ្ងៃ' || crbLeaveStatus === 'ពេលយប់');
                     
+                    const timeWindows = getTimeWindowsForSchedule(todaySchedule, now.getDay());
+                    const isCheckOutTime = timeWindows ? isTimeInWindow(now, timeWindows.checkOutStart, timeWindows.checkOutEnd) : false;
+
                     if (attendanceStatus.checkIn && !attendanceStatus.checkOut) {
                         if (!isCurrentlyTracking) startLiveTracking();
-                        liveTrackingWarning.classList.remove('hidden');
-                    } else { stopLiveTracking(); }
-
-                    const timeWindows = getTimeWindowsForSchedule(todaySchedule, now.getDay());
+                        if (!isCheckOutTime) {
+                            liveTrackingWarning.classList.remove('hidden');
+                        } else {
+                            liveTrackingWarning.classList.add('hidden');
+                        }
+                    } else { 
+                        stopLiveTracking(); 
+                    }
                     
                     if (cannotCheckIn && cannotCheckOut) { status = 'អ្នកបានសុំច្បាប់មួយថ្ងៃ។'; }
                     else if (!timeWindows) { status = 'ថ្ងៃនេះមិនមានកាលវិភាគទេ។'; }
                     else {
                         const isCheckInTime = isTimeInWindow(now, timeWindows.checkInStart, timeWindows.checkInEnd);
-                        const isCheckOutTime = isTimeInWindow(now, timeWindows.checkOutStart, timeWindows.checkOutEnd);
+                        const isCheckOutNow = isTimeInWindow(now, timeWindows.checkOutStart, timeWindows.checkOutEnd);
+
                         if (!cannotCheckIn && isCheckInTime && !attendanceStatus.checkIn) canCheckIn = true;
-                        if (!cannotCheckOut && isCheckOutTime && attendanceStatus.checkIn && !attendanceStatus.checkOut) canCheckOut = true;
+                        if (!cannotCheckOut && isCheckOutNow && attendanceStatus.checkIn && !attendanceStatus.checkOut) canCheckOut = true;
                         
                         if (attendanceStatus.checkIn && attendanceStatus.checkOut) { status = 'អ្នកបាន Check Out រួចរាល់សម្រាប់ថ្ងៃនេះ។'; }
                         else if (attendanceStatus.checkIn) { status = 'អ្នកបាន Check In រួចរាល់។'; }
                         else if (canCheckIn) { status = 'អ្នកអាច Check In បាន។'; }
-                        else if (!isCheckInTime && !isCheckOutTime) { status = 'ផុតម៉ោងឆែកវត្តមានហើយ!!!'; }
+                        else if (!isCheckInTime && !isCheckOutNow) { status = 'ផុតម៉ោងឆែកវត្តមានហើយ!!!'; }
                         else { status = cannotCheckIn && isCheckInTime ? 'អ្នកបានសុំច្បាប់ពេលព្រឹក។' : 'សូមរង់ចាំដល់ម៉ោង Check In / Out'; }
                     }
                     checkInButton.disabled = !canCheckIn; 
@@ -651,7 +659,7 @@
                 isCurrentlyTracking = true; 
                 telegramAlertSent = false;
                 disconnectionLogged = false;
-                stopLiveTracking(); // Clear old trackers just in case
+                stopLiveTracking();
                 window.addEventListener('offline', () => handleDisconnection('signal', null));
                 liveWatchId = navigator.geolocation.watchPosition(
                     (position) => {
