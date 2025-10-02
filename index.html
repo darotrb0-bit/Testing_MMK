@@ -543,7 +543,8 @@
                     return data;
                 } catch (error) {
                     console.error('getAttendanceStatus failed:', error);
-                    return { error: true, message: `Could not connect to the attendance server.` };
+                    const detailedMessage = `Server connection failed. Please check the Apps Script deployment. Details: ${error.message}`;
+                    return { error: true, message: detailedMessage };
                 }
             }
             
@@ -559,8 +560,7 @@
                     ]);
 
                     if (attendanceStatus.error || leaveStatus?.error || crbLeaveStatus?.error) {
-                        const errorMsg = attendanceStatus.error ? attendanceStatus.message 
-                                     : (leaveStatus?.error ? leaveStatus.message : crbLeaveStatus.message);
+                        const errorMsg = attendanceStatus.message || leaveStatus?.message || crbLeaveStatus?.message;
                         throw new Error(errorMsg || "An unknown error occurred while fetching data.");
                     }
 
@@ -677,8 +677,9 @@
                     if (!response.ok) throw new Error(`Server error: ${response.status}`);
                     return await response.json();
                 } catch (error) {
-                    if (data.action !== 'sendTelegramAlert') statusMessage.textContent = 'ការរក្សាទុកបរាជ័យ។';
-                    return { status: 'error', message: error.message };
+                    const detailedMessage = `Failed to save data. Details: ${error.message}`;
+                    if (data.action !== 'sendTelegramAlert') statusMessage.textContent = detailedMessage;
+                    return { status: 'error', message: detailedMessage };
                 }
             }
 
