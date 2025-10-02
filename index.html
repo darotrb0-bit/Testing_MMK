@@ -27,15 +27,14 @@
             width: 100%;
             max-width: 500px;
             margin: auto;
+            background-color: #1f2937;
+            border-radius: 0.5rem;
+            overflow: hidden;
         }
         video {
             width: 100%;
-            border-radius: 0.5rem;
-        }
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
+            height: auto;
+            display: block;
         }
         .combobox-options {
             max-height: 200px;
@@ -75,19 +74,24 @@
         <!-- Step 2: Check In / Check Out -->
         <div id="check-in-out-step" class="hidden text-center bg-gray-800 p-6 rounded-lg shadow-lg">
              <div class="mb-4">
-                <img id="employee-photo" class="w-24 h-24 rounded-full mx-auto border-4 border-teal-400" src="https://placehold.co/100x100/334155/e2e8f0?text=Employee" alt="Employee Photo">
-                <h2 id="employee-name-display" class="text-xl font-bold mt-2"></h2>
-                <p id="employee-id-display" class="text-gray-400"></p>
-            </div>
-            <p class="text-lg mb-4">ការផ្ទៀងផ្ទាត់ជោគជ័យ!</p>
-            <div id="video-container" class="mb-4">
-                <video id="qr-video" playsinline></video>
-            </div>
-            <p id="message" class="text-center mt-4 h-12"></p>
-            <div id="attendance-log" class="mt-4 text-left bg-gray-700 p-4 rounded-lg max-h-48 overflow-y-auto">
-                <h3 class="font-bold mb-2">កំណត់ត្រាវត្តមានថ្ងៃនេះ</h3>
-                <div id="log-content"></div>
-            </div>
+                 <img id="employee-photo" class="w-24 h-24 rounded-full mx-auto border-4 border-teal-400 object-cover" src="https://placehold.co/100x100/334155/e2e8f0?text=Employee" alt="Employee Photo">
+                 <h2 id="employee-name-display" class="text-xl font-bold mt-2"></h2>
+                 <p id="employee-id-display" class="text-gray-400"></p>
+             </div>
+             
+             <div id="video-container" class="mb-4">
+                 <video id="qr-video" playsinline></video>
+             </div>
+             <p id="message" class="text-center mt-4 h-12 transition-all duration-300"></p>
+             
+             <button id="start-over-button" class="hidden w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-transform duration-200 transform hover:scale-105">
+                 កត់ត្រាវត្តមានសម្រាប់បុគ្គលិកផ្សេងទៀត
+             </button>
+
+             <div id="attendance-log" class="mt-4 text-left bg-gray-700 p-4 rounded-lg max-h-48 overflow-y-auto">
+                 <h3 class="font-bold mb-2">កំណត់ត្រាវត្តមានថ្ងៃនេះ</h3>
+                 <div id="log-content"></div>
+             </div>
         </div>
         
         <!-- Admin QR Code Generator -->
@@ -101,6 +105,7 @@
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
     <script>
+        // --- DOM Elements ---
         const verificationVideo = document.getElementById('verification-video');
         const qrVideo = document.getElementById('qr-video');
         const messageDiv = document.getElementById('message');
@@ -111,43 +116,53 @@
         const checkInOutStep = document.getElementById('check-in-out-step');
         const adminQrGenerator = document.getElementById('admin-qr-generator');
         const verificationVideoContainer = document.getElementById('verification-video-container');
+        const videoContainer = document.getElementById('video-container');
         const logContent = document.getElementById('log-content');
-        
-        // Combobox elements
+        const startOverButton = document.getElementById('start-over-button');
         const comboboxInput = document.getElementById('combobox-input');
         const comboboxOptions = document.getElementById('combobox-options');
 
+        // --- State Variables ---
         let employees = [];
         let selectedEmployee = null;
         let currentStream;
-        let qrScanner;
+        let qrScannerAnimation;
 
+        // --- Configuration ---
         const GOOGLE_SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const GOOGLE_SHEET_NAME = 'DIList';
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
-
-        // --- Data Fetching ---
+        
+        // --- Data Fetching (IMPROVED to use JSON) ---
         async function fetchEmployeeData() {
             loadingMessage.textContent = 'កំពុងទាញទិន្នន័យបុគ្គលិក...';
             try {
-                const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${GOOGLE_SHEET_NAME}&headers=1`;
+                const url = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:json&sheet=${GOOGLE_SHEET_NAME}&headers=1`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Network response was not ok');
-                const csvText = await response.text();
                 
-                const rows = csvText.split('\n').map(row => row.split('","').map(cell => cell.replace(/"/g, '')));
-                employees = rows.slice(8) 
-                    .map(row => ({
-                        id: row[4],       // Column E
-                        name: row[11],    // Column L
-                        photoUrl: row[26] // Column AA
-                    }))
-                    .filter(emp => emp.id && emp.name && emp.photoUrl); // Ensure all data is present
+                const jsonpText = await response.text();
+                const jsonMatch = jsonpText.match(/google\.visualization\.Query\.setResponse\((.*)\)/s);
+                if (!jsonMatch || !jsonMatch[1]) throw new Error("Invalid JSONP response format");
                 
+                const data = JSON.parse(jsonMatch[1]);
+
+                employees = data.table.rows.map(row => {
+                    const idCell = row.c[4];   // Column E
+                    const nameCell = row.c[11];  // Column L
+                    const photoCell = row.c[26]; // Column AA
+                    
+                    return {
+                        id: idCell ? idCell.v : null,
+                        name: nameCell ? nameCell.v : null,
+                        photoUrl: photoCell ? photoCell.v : null
+                    };
+                }).filter(emp => emp.id && emp.name && emp.photoUrl && emp.photoUrl.startsWith('http'));
+
                 populateCombobox(employees);
             } catch (error) {
                 console.error('Error fetching employee data:', error);
-                loadingMessage.textContent = 'បរាជ័យក្នុងការទាញទិន្នន័យបុគ្គលិក។';
+                loadingMessage.textContent = 'បរាជ័យក្នុងការទាញទិន្នន័យបុគ្គលិក។ សូមពិនិត្យ Console។';
             }
         }
 
@@ -167,10 +182,8 @@
                 comboboxOptions.appendChild(option);
             });
         }
-
         comboboxInput.addEventListener('focus', () => comboboxOptions.classList.remove('hidden'));
         comboboxInput.addEventListener('blur', () => setTimeout(() => comboboxOptions.classList.add('hidden'), 200));
-
         comboboxInput.addEventListener('input', () => {
             const filter = comboboxInput.value.toLowerCase();
             const filteredEmployees = employees.filter(emp => 
@@ -180,7 +193,7 @@
             comboboxOptions.classList.remove('hidden');
         });
 
-        // --- Face Verification Logic ---
+        // --- Face Verification Logic (IMPROVED with CORS Proxy) ---
         async function handleEmployeeSelection(employeeId) {
             selectedEmployee = employees.find(emp => emp.id === employeeId);
             if (!selectedEmployee) return;
@@ -189,8 +202,11 @@
             verificationVideoContainer.classList.remove('hidden');
 
             try {
-                // IMPORTANT: The image URL must be publicly accessible and allow cross-origin requests (CORS).
-                const referenceImage = await faceapi.fetchImage(selectedEmployee.photoUrl);
+                // Use a CORS proxy to bypass cross-origin restrictions on Google Drive images.
+                const proxyUrl = 'https://corsproxy.io/?';
+                const imageUrl = `${proxyUrl}${selectedEmployee.photoUrl}`;
+                
+                const referenceImage = await faceapi.fetchImage(imageUrl);
                 const referenceDescriptor = await faceapi.detectSingleFace(referenceImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
 
                 if (!referenceDescriptor) {
@@ -213,7 +229,7 @@
                 verificationMessageDiv.textContent = 'សូមដាក់មុខឲ្យចំកាមេរ៉ា';
 
                 const intervalId = setInterval(async () => {
-                    if(!currentStream) { // Stop if stream was cancelled
+                    if(!currentStream) {
                         clearInterval(intervalId);
                         return;
                     }
@@ -235,7 +251,6 @@
                 }, 1000);
             } catch (err) {
                 verificationMessageDiv.textContent = 'មិនអាចបើកកាមេរ៉ាបានទេ។ សូមអនុញ្ញាតឱ្យ Browser ប្រើប្រាស់កាមេរ៉ា។';
-                console.error("Camera access error:", err);
             }
         }
         
@@ -250,21 +265,29 @@
         }
 
         async function startQRScanner() {
-            messageDiv.textContent = 'កំពុងបើកកាមេរ៉ាដើម្បីស្កេន QR Code...';
+            messageDiv.textContent = 'កំពុងបើកកាមេរ៉ាដើម្បីស្កេន QR...';
             messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
             stopAllStreams();
             try {
-                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
-                qrVideo.srcObject = currentStream;
-                qrVideo.play();
-                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                messageDiv.className = 'text-center mt-4 h-12 text-white';
-                qrScanner = requestAnimationFrame(tick);
+                // IMPROVED: Camera fallback
+                const constraints = { video: { facingMode: { ideal: "environment" } } };
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {
-                 messageDiv.textContent = 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។';
-                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                 console.error("Rear camera error:", err);
+                 console.warn("Environment camera not found, falling back to default camera.");
+                 try {
+                      currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                 } catch (fallbackErr) {
+                      messageDiv.textContent = 'បរាជ័យក្នុងការបើកកាមេរ៉ា។';
+                      messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                      return;
+                 }
             }
+            
+            qrVideo.srcObject = currentStream;
+            qrVideo.play();
+            messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
+            messageDiv.className = 'text-center mt-4 h-12 text-white';
+            qrScannerAnimation = requestAnimationFrame(tick);
         }
 
         function tick() {
@@ -279,14 +302,15 @@
 
                 if (code) {
                     handleQRCode(code.data);
-                    return; // Stop this animation frame, handleQRCode will restart if necessary.
+                    return; 
                 }
             }
-            qrScanner = requestAnimationFrame(tick);
+            qrScannerAnimation = requestAnimationFrame(tick);
         }
 
         function handleQRCode(qrData) {
-            messageDiv.textContent = 'បានស្កេន QR Code! កំពុងពិនិត្យទីតាំង...';
+            cancelAnimationFrame(qrScannerAnimation); // Stop scanning immediately
+            messageDiv.textContent = 'បានស្កេន QR! កំពុងពិនិត្យទីតាំង...';
             messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
             
             try {
@@ -297,51 +321,35 @@
                     (position) => {
                         const userCoords = [position.coords.latitude, position.coords.longitude];
                         if (isPointInPolygon(userCoords, allowedAreaCoords)) {
-                            // SUCCESS!
-                            cancelAnimationFrame(qrScanner);
                             stopAllStreams();
                             submitAttendance();
                         } else {
-                            // FAILURE: Wrong location
                             messageDiv.textContent = 'អ្នកមិនស្ថិតនៅក្នុងទីតាំងដែលបានអនុញ្ញាតទេ។';
                             messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                            setTimeout(() => {
-                                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                                messageDiv.className = 'text-center mt-4 h-12 text-white';
-                                qrScanner = requestAnimationFrame(tick);
-                            }, 2500);
+                            setTimeout(startQRScanner, 3000);
                         }
                     },
                     (error) => {
-                        messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។';
+                        messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។ សូមអនុញ្ញាត Location Access។';
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                        setTimeout(() => {
-                            messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                            messageDiv.className = 'text-center mt-4 h-12 text-white';
-                            qrScanner = requestAnimationFrame(tick);
-                        }, 2500);
+                        setTimeout(startQRScanner, 3000);
                     },
-                    { enableHighAccuracy: true }
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } catch (e) {
-                // FAILURE: Invalid QR Code format
                 messageDiv.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
-                setTimeout(() => {
-                    messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                    messageDiv.className = 'text-center mt-4 h-12 text-white';
-                    qrScanner = requestAnimationFrame(tick);
-                }, 2500);
+                setTimeout(startQRScanner, 3000);
             }
         }
         
-        // --- Data Submission ---
+        // --- Data Submission (IMPROVED with better feedback) ---
         function submitAttendance() {
             const lastLog = getTodaysLog().pop();
             const action = (!lastLog || lastLog.action === 'Check Out') ? 'Check In' : 'Check Out';
 
             messageDiv.textContent = `កំពុងបញ្ជូន ${action}...`;
-            messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
+            messageDiv.className = 'text-center mt-4 h-12 text-yellow-400 animate-pulse';
 
             navigator.geolocation.getCurrentPosition(position => {
                 const data = {
@@ -354,27 +362,26 @@
                     userAgent: navigator.userAgent
                 };
 
-                fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(data)
-                })
+                fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data) })
                 .then(response => response.json())
                 .then(result => {
+                    // Display the specific message from the backend
+                    messageDiv.textContent = result.message; 
                     if (result.status === 'success') {
-                        messageDiv.textContent = `${action} បានកត់ត្រាដោយជោគជ័យ!`;
-                        messageDiv.className = 'text-center mt-4 h-12 text-green-500';
+                        messageDiv.className = 'text-center mt-4 h-12 text-green-400';
                         saveLog(action);
                         updateLogDisplay();
+                        videoContainer.classList.add('hidden');
+                        startOverButton.classList.remove('hidden');
                     } else {
-                        // Display the specific error message from the Apps Script
-                        messageDiv.textContent = result.message || 'An unknown error occurred.';
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                        setTimeout(startQRScanner, 3000); // Retry after error
                     }
                 })
                 .catch(error => {
-                    console.error('Error submitting attendance:', error);
                     messageDiv.textContent = `មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។`;
                     messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                    setTimeout(startQRScanner, 3000);
                 });
             });
         }
@@ -385,7 +392,6 @@
             const today = new Date().toISOString().slice(0, 10);
             if (!logs[selectedEmployee.id]) logs[selectedEmployee.id] = {};
             if (!logs[selectedEmployee.id][today]) logs[selectedEmployee.id][today] = [];
-
             const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit'});
             logs[selectedEmployee.id][today].push({ action, time });
             localStorage.setItem('attendanceLogs', JSON.stringify(logs));
@@ -411,6 +417,21 @@
                 `).join('');
             }
         }
+        
+        // --- NEW: Start Over Flow ---
+        function startOver() {
+            stopAllStreams();
+            checkInOutStep.classList.add('hidden');
+            verificationStep.classList.remove('hidden');
+            comboboxInput.value = '';
+            verificationMessageDiv.textContent = '';
+            verificationVideoContainer.classList.add('hidden');
+            startOverButton.classList.add('hidden');
+            videoContainer.classList.remove('hidden');
+            selectedEmployee = null;
+        }
+        startOverButton.addEventListener('click', startOver);
+
 
         // --- Utility Functions ---
         function isPointInPolygon(point, polygon) {
@@ -430,34 +451,29 @@
                 currentStream.getTracks().forEach(track => track.stop());
                 currentStream = null;
             }
-            if (qrScanner) {
-                cancelAnimationFrame(qrScanner);
-                qrScanner = null;
+            if (qrScannerAnimation) {
+                cancelAnimationFrame(qrScannerAnimation);
+                qrScannerAnimation = null;
             }
         }
 
         // --- Initialization ---
         async function initialize() {
-            // Check for insecure context which can block camera access
-            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-                loadingScreen.innerHTML = `
-                    <div class="bg-red-900 border border-red-600 p-6 rounded-lg">
-                        <h2 class="text-xl font-semibold text-red-300">បញ្ហាសុវត្ថិភាព</h2>
-                        <p class="mt-2 text-red-200">កម្មវិធីនេះត្រូវតែដំណើរការលើ HTTPS ឬ localhost ដើម្បីអាចប្រើប្រាស់កាមេរ៉ាបាន។</p>
-                    </div>
-                `;
+            if (window.location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+                loadingScreen.innerHTML = `<div class="bg-red-900 border border-red-600 p-6 rounded-lg"><h2 class="text-xl font-semibold text-red-300">បញ្ហាសុវត្ថិភាព</h2><p class="mt-2 text-red-200">កម្មវិធីនេះត្រូវតែដំណើរការលើ HTTPS ដើម្បីអាចប្រើប្រាស់កាមេរ៉ាបាន។</p></div>`;
                 return;
             }
 
             loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
             const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/';
             try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
             } catch (error) {
                  loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
-                 console.error("Model loading error:", error);
                  return;
             }
             
@@ -466,23 +482,16 @@
             loadingScreen.classList.add('hidden');
             verificationStep.classList.remove('hidden');
 
-            // Admin check and QR Code Generation
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('role') === 'admin') {
                 adminQrGenerator.classList.remove('hidden');
                 const allowedAreaCoords = [
-                    [11.413680442561867, 104.76339216308112],
-                    [11.414127010981806, 104.76265983159293],
-                    [11.413509327373639, 104.76218296457736],
-                    [11.412874948214588, 104.76308560571397]
+                    [11.413680, 104.763392], [11.414127, 104.762659],
+                    [11.413509, 104.762182], [11.412874, 104.763085]
                 ];
-                 new QRCode(document.getElementById("qrcode"), {
+                new QRCode(document.getElementById("qrcode"), {
                     text: JSON.stringify(allowedAreaCoords),
-                    width: 200,
-                    height: 200,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
+                    width: 200, height: 200, correctLevel : QRCode.CorrectLevel.H
                 });
             }
         }
@@ -491,4 +500,3 @@
     </script>
 </body>
 </html>
-
