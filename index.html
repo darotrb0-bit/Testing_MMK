@@ -121,10 +121,61 @@
         let selectedEmployee = null;
         let currentStream;
         let qrScanner;
+        let wrongLocationAttempts = 0;
+        let khmerVoice = null;
+
 
         const GOOGLE_SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const GOOGLE_SHEET_NAME = 'DIList';
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
+
+        // --- Audio Functions ---
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            khmerVoice = voices.find(voice => voice.lang === 'km-KH');
+            if (!khmerVoice) {
+                console.warn('Khmer (km-KH) voice not found. Using default browser voice.');
+            }
+        }
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        
+        function speak(text, options = {}) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'km-KH';
+                if (khmerVoice) {
+                    utterance.voice = khmerVoice;
+                }
+                utterance.rate = options.rate || 1.0;
+                utterance.pitch = options.pitch || 1.0;
+                utterance.volume = options.volume || 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.error('Speech Synthesis not supported in this browser.');
+            }
+        }
+        
+        function playAlarm() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // High pitch
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 1);
+            } catch (e) {
+                console.error("Could not play alarm sound:", e);
+            }
+        }
+
 
         // --- Data Fetching ---
         async function fetchEmployeeData() {
@@ -142,7 +193,7 @@
                         name: row[11],    // Column L
                         photoUrl: row[26] // Column AA
                     }))
-                    .filter(emp => emp.id && emp.name && emp.photoUrl); // Ensure all data is present
+                    .filter(emp => emp.id && emp.name && emp.photoUrl); 
                 
                 populateCombobox(employees);
             } catch (error) {
@@ -189,7 +240,6 @@
             verificationVideoContainer.classList.remove('hidden');
 
             try {
-                // IMPORTANT: The image URL must be publicly accessible and allow cross-origin requests (CORS).
                 const referenceImage = await faceapi.fetchImage(selectedEmployee.photoUrl);
                 const referenceDescriptor = await faceapi.detectSingleFace(referenceImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
 
@@ -213,7 +263,7 @@
                 verificationMessageDiv.textContent = 'សូមដាក់មុខឲ្យចំកាមេរ៉ា';
 
                 const intervalId = setInterval(async () => {
-                    if(!currentStream) { // Stop if stream was cancelled
+                    if(!currentStream) { 
                         clearInterval(intervalId);
                         return;
                     }
@@ -227,7 +277,6 @@
                             clearInterval(intervalId);
                             stopAllStreams();
                             verificationStep.classList.add('hidden');
-                            adminQrGenerator.classList.add('hidden'); // Hide QR after success
                             displayCheckInOutStep();
                         } else {
                             verificationMessageDiv.textContent = 'មុខមិនត្រូវគ្នា សូមព្យាយាមម្តងទៀត';
@@ -280,7 +329,7 @@
 
                 if (code) {
                     handleQRCode(code.data);
-                    return; // Stop this animation frame, handleQRCode will restart if necessary.
+                    return; 
                 }
             }
             qrScanner = requestAnimationFrame(tick);
@@ -298,41 +347,51 @@
                     (position) => {
                         const userCoords = [position.coords.latitude, position.coords.longitude];
                         if (isPointInPolygon(userCoords, allowedAreaCoords)) {
-                            // SUCCESS!
+                            wrongLocationAttempts = 0; // Reset on success
                             cancelAnimationFrame(qrScanner);
                             stopAllStreams();
                             submitAttendance();
                         } else {
-                            // FAILURE: Wrong location
+                            wrongLocationAttempts++;
                             messageDiv.textContent = 'អ្នកមិនស្ថិតនៅក្នុងទីតាំងដែលបានអនុញ្ញាតទេ។';
                             messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+
+                            if (wrongLocationAttempts > 2) {
+                                playAlarm();
+                            } else {
+                                speak('សូមប្អូនស្កេនវត្តមាននៅ អគារ B', { rate: 0.85, pitch: 0.9 });
+                            }
+                            
                             setTimeout(() => {
                                 messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
                                 messageDiv.className = 'text-center mt-4 h-12 text-white';
-                                qrScanner = requestAnimationFrame(tick);
-                            }, 2500);
+                                qrScanner = requestAnimationFrame(tick); // Restart scanning
+                            }, 3000);
                         }
                     },
                     (error) => {
+                        wrongLocationAttempts = 0;
                         messageDiv.textContent = 'មិនអាចទទួលបានទីតាំង GPS។';
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                        speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                         setTimeout(() => {
                             messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
                             messageDiv.className = 'text-center mt-4 h-12 text-white';
                             qrScanner = requestAnimationFrame(tick);
-                        }, 2500);
+                        }, 3000);
                     },
                     { enableHighAccuracy: true }
                 );
             } catch (e) {
-                // FAILURE: Invalid QR Code format
+                wrongLocationAttempts = 0;
                 messageDiv.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                 setTimeout(() => {
                     messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
                     messageDiv.className = 'text-center mt-4 h-12 text-white';
                     qrScanner = requestAnimationFrame(tick);
-                }, 2500);
+                }, 3000);
             }
         }
         
@@ -364,18 +423,20 @@
                     if (result.status === 'success') {
                         messageDiv.textContent = `${action} បានកត់ត្រាដោយជោគជ័យ!`;
                         messageDiv.className = 'text-center mt-4 h-12 text-green-500';
+                        speak(action === 'Check In' ? 'បាន ស្កេន ចូល ជោគជ័យ' : 'បាន ស្កេន ចេញ ជោគជ័យ');
                         saveLog(action);
                         updateLogDisplay();
                     } else {
-                        // Display the specific error message from the Apps Script
                         messageDiv.textContent = result.message || 'An unknown error occurred.';
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                        speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                     }
                 })
                 .catch(error => {
                     console.error('Error submitting attendance:', error);
                     messageDiv.textContent = `មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។`;
                     messageDiv.className = 'text-center mt-4 h-12 text-red-500';
+                    speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                 });
             });
         }
@@ -439,7 +500,6 @@
 
         // --- Initialization ---
         async function initialize() {
-            // Check for insecure context which can block camera access
             if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
                 loadingScreen.innerHTML = `
                     <div class="bg-red-900 border border-red-600 p-6 rounded-lg">
@@ -467,22 +527,24 @@
             loadingScreen.classList.add('hidden');
             verificationStep.classList.remove('hidden');
 
-            // Always show QR code initially
-            adminQrGenerator.classList.remove('hidden');
-             const allowedAreaCoords = [
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('role') === 'admin') {
+                adminQrGenerator.classList.remove('hidden');
+                 const allowedAreaCoords = [
             [11.41447147440343, 104.76393840909707],
             [11.414694486298925, 104.76362035676968],
             [11.41366589936185, 104.76299353831425],
             [11.41354756611228, 104.76344391898223]
         ];
-            new QRCode(document.getElementById("qrcode"), {
-                text: JSON.stringify(allowedAreaCoords),
-                width: 200,
-                height: 200,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
+                 new QRCode(document.getElementById("qrcode"), {
+                    text: JSON.stringify(allowedAreaCoords),
+                    width: 200,
+                    height: 200,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }
         }
 
         initialize();
