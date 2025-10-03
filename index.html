@@ -469,12 +469,12 @@
 
             // Always show and generate QR Code
             adminQrGenerator.classList.remove('hidden');
-            const allowedAreaCoords = [
-                [11.415044506197871, 104.76410481548675],
-                [11.415078950407759, 104.76400720634004],
-                [11.413546179009384, 104.76343521672561],
-                [11.413706919468373, 104.76310334562682]
-            ];
+             const allowedAreaCoords = [
+            [11.415296921108219, 104.76411630326837],
+            [11.41524959639537, 104.76421353334031],
+            [11.4136513648048, 104.76344030651754],
+            [11.413703948114726, 104.76333502981896]
+        ];
              new QRCode(document.getElementById("qrcode"), {
                 text: JSON.stringify(allowedAreaCoords),
                 width: 200,
