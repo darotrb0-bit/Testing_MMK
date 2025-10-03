@@ -227,6 +227,7 @@
                             clearInterval(intervalId);
                             stopAllStreams();
                             verificationStep.classList.add('hidden');
+                            adminQrGenerator.classList.add('hidden'); // Hide QR after success
                             displayCheckInOutStep();
                         } else {
                             verificationMessageDiv.textContent = 'មុខមិនត្រូវគ្នា សូមព្យាយាមម្តងទៀត';
@@ -466,25 +467,22 @@
             loadingScreen.classList.add('hidden');
             verificationStep.classList.remove('hidden');
 
-            // Admin check and QR Code Generation
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('role') === 'admin') {
-                adminQrGenerator.classList.remove('hidden');
-                 const allowedAreaCoords = [
+            // Always show QR code initially
+            adminQrGenerator.classList.remove('hidden');
+             const allowedAreaCoords = [
             [11.41447147440343, 104.76393840909707],
             [11.414694486298925, 104.76362035676968],
             [11.41366589936185, 104.76299353831425],
             [11.41354756611228, 104.76344391898223]
         ];
-                 new QRCode(document.getElementById("qrcode"), {
-                    text: JSON.stringify(allowedAreaCoords),
-                    width: 200,
-                    height: 200,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
-            }
+            new QRCode(document.getElementById("qrcode"), {
+                text: JSON.stringify(allowedAreaCoords),
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
         }
 
         initialize();
