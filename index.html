@@ -227,7 +227,6 @@
                             clearInterval(intervalId);
                             stopAllStreams();
                             verificationStep.classList.add('hidden');
-                            adminQrGenerator.classList.add('hidden');
                             displayCheckInOutStep();
                         } else {
                             verificationMessageDiv.textContent = 'មុខមិនត្រូវគ្នា សូមព្យាយាមម្តងទៀត';
@@ -329,7 +328,7 @@
                 messageDiv.textContent = 'QR Code មិនត្រឹមត្រូវទេ។';
                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
                 setTimeout(() => {
-                    messageDiv.textContent = 'សូមស្កេን QR Code របស់ទីតាំង';
+                    messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
                     messageDiv.className = 'text-center mt-4 h-12 text-white';
                     qrScanner = requestAnimationFrame(tick);
                 }, 2500);
@@ -467,22 +466,25 @@
             loadingScreen.classList.add('hidden');
             verificationStep.classList.remove('hidden');
 
-            // Always show and generate QR Code
-            adminQrGenerator.classList.remove('hidden');
-              const allowedAreaCoords = [
+            // Admin check and QR Code Generation
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('role') === 'admin') {
+                adminQrGenerator.classList.remove('hidden');
+                 const allowedAreaCoords = [
             [11.41447147440343, 104.76393840909707],
             [11.414694486298925, 104.76362035676968],
             [11.41366589936185, 104.76299353831425],
             [11.41354756611228, 104.76344391898223]
         ];
-             new QRCode(document.getElementById("qrcode"), {
-                text: JSON.stringify(allowedAreaCoords),
-                width: 200,
-                height: 200,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
+                 new QRCode(document.getElementById("qrcode"), {
+                    text: JSON.stringify(allowedAreaCoords),
+                    width: 200,
+                    height: 200,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }
         }
 
         initialize();
