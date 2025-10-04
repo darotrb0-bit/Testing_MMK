@@ -73,202 +73,93 @@
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
 
     <script>
+        // --- START OF FULL SCRIPT ---
+
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwSJYdzVMweOyJbPJ-ChnRE01vX0rS04tlfYPPp687_y4_LP4ilFPwBB5joPe-_91u/exec';
-        
-        // DOM Elements
+
+        // --- DOM Elements ---
         const verificationVideo = document.getElementById('verification-video');
         const verificationCanvas = document.getElementById('verification-canvas');
-        const comboboxInput = document.getElementById('combobox-input');
-        const comboboxOptions = document.getElementById('combobox-options');
+        const qrVideo = document.getElementById('qr-video');
         const loadingScreen = document.getElementById('loading-screen');
         const loadingMessage = document.getElementById('loading-message');
         const verificationStep = document.getElementById('verification-step');
-        const verificationVideoContainer = document.getElementById('verification-video-container');
         const checkInOutStep = document.getElementById('check-in-out-step');
-        // ... (add other element getters if needed)
+        const adminQrGenerator = document.getElementById('admin-qr-generator');
+        const verificationVideoContainer = document.getElementById('verification-video-container');
+        const logContent = document.getElementById('log-content');
+        const logoutButton = document.getElementById('logout-button');
+        const checkInOutTitle = document.getElementById('check-in-out-title');
+        const comboboxInput = document.getElementById('combobox-input');
+        const comboboxOptions = document.getElementById('combobox-options');
 
+        // --- State Variables ---
         let employees = [];
         let selectedEmployee = null;
         let currentStream;
         let qrScanner;
         let khmerVoice = null;
+        let wrongLocationAttempts = 0;
         let faceVerificationInterval;
 
-        // --- Data Fetching with Caching (FIX for slow load) ---
+        // --- Icon SVGs ---
+        const icons = {
+            success: `<svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            error: `<svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            loading: `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`
+        };
+
+        // --- Message Display Function ---
+        function showMessage(elementId, text, type = 'info') {
+            const el = document.getElementById(elementId);
+            let icon = '';
+            let textColor = 'text-gray-400';
+            if (type === 'success') { icon = icons.success; textColor = 'text-green-400'; }
+            else if (type === 'error') { icon = icons.error; textColor = 'text-red-400'; }
+            else if (type === 'loading') { icon = icons.loading; textColor = 'text-yellow-400'; }
+            el.className = `message-box mt-4 font-semibold ${textColor}`;
+            el.innerHTML = `${icon}<span>${text}</span>`;
+        }
+
+        // --- Audio Functions ---
+        window.speechSynthesis.onvoiceschanged = () => { khmerVoice = window.speechSynthesis.getVoices().find(v => v.lang === 'km-KH'); };
+        function speak(text) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'km-KH';
+            if (khmerVoice) utterance.voice = khmerVoice;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // --- Data Fetching with Caching ---
         async function fetchEmployeeData() {
             const CACHE_KEY = 'employee_data_cache';
             const cachedData = JSON.parse(localStorage.getItem(CACHE_KEY));
             const now = new Date().getTime();
             const oneDay = 24 * 60 * 60 * 1000;
-
-            // If valid cache exists, load it immediately
             if (cachedData && (now - cachedData.timestamp < oneDay)) {
                 employees = cachedData.data;
                 populateCombobox(employees);
-                console.log('Loaded employees from cache.');
             } else {
                 loadingMessage.textContent = 'កំពុងទាញទិន្នន័យបុគ្គលិក...';
             }
-
-            // Always fetch fresh data in the background
             try {
                 const response = await fetch(SCRIPT_URL);
                 if (!response.ok) throw new Error('Network response was not ok');
                 const result = await response.json();
-                
                 if (result.status === 'success') {
                     employees = result.data;
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({
-                        timestamp: new Date().getTime(),
-                        data: employees
-                    }));
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: new Date().getTime(), data: employees }));
                     populateCombobox(employees);
-                    console.log('Fetched fresh employee data.');
-                } else {
-                    throw new Error(result.message || 'Failed to parse employee data.');
-                }
+                } else { throw new Error(result.message || 'Failed to parse employee data.'); }
             } catch (error) {
                 console.error('Error fetching employee data:', error);
-                if (!employees.length) { // Only show error if no cache exists
-                    loadingMessage.textContent = 'បរាជ័យក្នុងការទាញទិន្នន័យបុគ្គលិក។';
-                }
+                if (!employees.length) { loadingMessage.textContent = 'បរាជ័យក្នុងការទាញទិន្នន័យបុគ្គលិក។'; }
             }
         }
 
-        // --- Face Verification Logic ---
-        async function handleEmployeeSelection(employeeId) {
-            selectedEmployee = employees.find(emp => emp.id === employeeId);
-            if (!selectedEmployee) return;
-
-            showMessage('verification-message', 'កំពុងរៀបចំកាមេរ៉ា...', 'loading');
-            verificationVideoContainer.classList.remove('hidden');
-
-            try {
-                let imageUrl = selectedEmployee.photoUrl.includes('googleusercontent.com') 
-                    ? `${selectedEmployee.photoUrl.split('=')[0]}=s256` 
-                    : selectedEmployee.photoUrl;
-
-                const referenceImage = await faceapi.fetchImage(imageUrl);
-                // **FIX**: Must use "new faceapi.TinyFaceDetectorOptions()" here
-                const referenceDescriptor = await faceapi.detectSingleFace(referenceImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-
-                if (!referenceDescriptor) {
-                    showMessage('verification-message', 'មិនអាចស្វែងរកមុខក្នុងរូបថតយោងបានទេ។', 'error');
-                    return;
-                }
-                startVerificationCamera(referenceDescriptor);
-            } catch (error) {
-                console.error("Error processing reference image:", error);
-                showMessage('verification-message', 'URL រូបថតមិនត្រឹមត្រូវ ឬមានបញ្ហា CORS។', 'error');
-            }
-        }
-        
-        async function startVerificationCamera(referenceDescriptor) {
-            stopAllStreams();
-            try {
-                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-                verificationVideo.srcObject = currentStream;
-                showMessage('verification-message', 'សូមដាក់មុខឲ្យចំកាមេរ៉ា');
-
-                const faceMatcher = new faceapi.FaceMatcher(referenceDescriptor);
-                const canvas = verificationCanvas;
-                
-                faceVerificationInterval = setInterval(async () => {
-                    if (!currentStream || verificationVideo.paused || verificationVideo.ended) {
-                        clearInterval(faceVerificationInterval);
-                        return;
-                    }
-
-                    const displaySize = { width: verificationVideo.clientWidth, height: verificationVideo.clientHeight };
-                    faceapi.matchDimensions(canvas, displaySize);
-
-                    // **FIX**: Must use "new faceapi.TinyFaceDetectorOptions()" here too
-                    const detections = await faceapi.detectSingleFace(verificationVideo, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-
-                    if (detections) {
-                        const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                        const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
-                        
-                        const box = resizedDetections.detection.box;
-                        const drawBox = new faceapi.draw.DrawBox(box, { 
-                            boxColor: bestMatch.label !== 'unknown' ? 'limegreen' : 'red'
-                        });
-                        drawBox.draw(canvas);
-
-                        if (bestMatch.label !== 'unknown') {
-                            clearInterval(faceVerificationInterval);
-                            showMessage('verification-message', 'ផ្ទៀងផ្ទាត់ជោគជ័យ!', 'success');
-                            speak('ផ្ទៀងផ្ទាត់ជោគជ័យ');
-                            
-                            localStorage.setItem('loggedInEmployeeId', selectedEmployee.id);
-                            localStorage.setItem('lastActivityTimestamp', Date.now().toString());
-
-                            setTimeout(() => {
-                                stopAllStreams();
-                                verificationStep.classList.add('hidden');
-                                document.getElementById('admin-qr-generator').classList.add('hidden');
-                                displayCheckInOutStep();
-                            }, 1000);
-                        }
-                    }
-                }, 500);
-            } catch (err) {
-                showMessage('verification-message', 'មិនអាចបើកកាមេរ៉ាបានទេ។', 'error');
-                console.error("Camera access error:", err);
-            }
-        }
-        
-        // --- Initialization ---
-        async function initialize() {
-            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-                loadingScreen.innerHTML = `<div class="bg-red-900 border border-red-600 p-6 rounded-lg"><h2 class="text-xl font-semibold text-red-300">បញ្ហាសុវត្ថិភាព</h2><p class="mt-2 text-red-200">កម្មវិធីនេះត្រូវតែដំណើរការលើ HTTPS។</p></div>`;
-                return;
-            }
-            
-            const savedEmployeeId = localStorage.getItem('loggedInEmployeeId');
-            const lastActivity = localStorage.getItem('lastActivityTimestamp');
-            const now = Date.now();
-            const fortyEightHours = 48 * 60 * 60 * 1000;
-
-            await fetchEmployeeData(); // Start fetching data immediately
-
-            if (savedEmployeeId && lastActivity && (now - parseInt(lastActivity, 10) < fortyEightHours)) {
-                selectedEmployee = employees.find(emp => emp.id === savedEmployeeId);
-                if (selectedEmployee) {
-                    loadingScreen.classList.add('hidden');
-                    displayCheckInOutStep();
-                } else { handleLogout(); }
-            } else {
-                localStorage.clear();
-                loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
-                try {
-                    await Promise.all([
-                        faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/'),
-                        faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/'),
-                        faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/')
-                    ]);
-                } catch (error) {
-                    loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
-                    return;
-                }
-                
-                loadingScreen.classList.add('hidden');
-                verificationStep.classList.remove('hidden');
-
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('role') === 'admin') {
-                    document.getElementById('admin-qr-generator').classList.remove('hidden');
-                    const allowedAreaCoords = [[11.414507824685131, 104.76383709398525],[11.414542661023914, 104.76376199213838],[11.41448547684292, 104.76373449949799],[11.414456556103309, 104.76380691913606]];
-                    new QRCode(document.getElementById("qrcode"), { text: JSON.stringify(allowedAreaCoords), width: 200, height: 200 });
-                }
-            }
-        }
-
-        // --- All other helper functions (populateCombobox, startQRScanner, showMessage, etc.) ---
-        // (The rest of your functions can be placed here without changes. For brevity, I am omitting functions that don't require edits, like displayCheckInOutStep, QR scanning, submitting attendance, logout, etc. Please make sure to include them from your previous code.)
-
-        // Helper functions that can be copied from the previous version:
+        // --- Combobox Logic ---
         function populateCombobox(data) {
             comboboxOptions.innerHTML = '';
             data.forEach(emp => {
@@ -292,25 +183,288 @@
             comboboxOptions.classList.remove('hidden');
         });
 
-        const icons = { success: `<svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`, error: `<svg class="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`, loading: `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` };
-        function showMessage(elementId, text, type = 'info') { const el = document.getElementById(elementId); let icon = ''; let textColor = 'text-gray-400'; if (type === 'success') { icon = icons.success; textColor = 'text-green-400'; } else if (type === 'error') { icon = icons.error; textColor = 'text-red-400'; } else if (type === 'loading') { icon = icons.loading; textColor = 'text-yellow-400'; } el.className = `message-box mt-4 font-semibold ${textColor}`; el.innerHTML = `${icon}<span>${text}</span>`; }
-        window.speechSynthesis.onvoiceschanged = () => { khmerVoice = window.speechSynthesis.getVoices().find(v => v.lang === 'km-KH'); };
-        function speak(text) { if (!('speechSynthesis' in window)) return; window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'km-KH'; if (khmerVoice) utterance.voice = khmerVoice; window.speechSynthesis.speak(utterance); }
-        function displayCheckInOutStep() { document.getElementById('employee-photo').src = selectedEmployee.photoUrl; document.getElementById('employee-name-display').textContent = selectedEmployee.name; document.getElementById('employee-id-display').textContent = `ID: ${selectedEmployee.id}`; updateLogDisplay(); checkInOutStep.classList.remove('hidden'); document.getElementById('check-in-out-title').textContent = "សូមស្កេន QR Code"; startQRScanner(); }
-        async function startQRScanner() { showMessage('message', 'កំពុងបើកកាមេរ៉ា...', 'loading'); stopAllStreams(); try { currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } }); document.getElementById('qr-video').srcObject = currentStream; document.getElementById('qr-video').play(); document.getElementById('message').innerHTML = ''; qrScanner = requestAnimationFrame(tick); } catch (err) { showMessage('message', 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។', 'error'); } }
-        function tick() { const qrVideo = document.getElementById('qr-video'); if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) { const canvasElement = document.createElement('canvas'); const canvas = canvasElement.getContext('2d'); canvasElement.height = qrVideo.videoHeight; canvasElement.width = qrVideo.videoWidth; canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height); const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height); const code = jsQR(imageData.data, imageData.width, imageData.height); if (code) { handleQRCode(code.data); return; } } qrScanner = requestAnimationFrame(tick); }
-        function handleQRCode(qrData) { /* ... same as before ... */ }
-        function submitAttendance() { /* ... same as before ... */ }
-        function saveLog(action) { /* ... same as before ... */ }
-        function getTodaysLog() { /* ... same as before ... */ }
-        function updateLogDisplay() { /* ... same as before ... */ }
-        function isPointInPolygon(point, polygon) { /* ... same as before ... */ }
-        function stopAllStreams() { if (faceVerificationInterval) clearInterval(faceVerificationInterval); if (qrScanner) cancelAnimationFrame(qrScanner); if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); currentStream = null; } }
-        function handleLogout() { speak('បានចាកចេញ'); localStorage.removeItem('loggedInEmployeeId'); localStorage.removeItem('lastActivityTimestamp'); window.location.reload(); }
-        document.getElementById('logout-button').addEventListener('click', handleLogout);
+        // --- Face Verification Logic ---
+        async function handleEmployeeSelection(employeeId) {
+            selectedEmployee = employees.find(emp => emp.id === employeeId);
+            if (!selectedEmployee) return;
+            showMessage('verification-message', 'កំពុងរៀបចំកាមេរ៉ា...', 'loading');
+            verificationVideoContainer.classList.remove('hidden');
+            try {
+                let imageUrl = selectedEmployee.photoUrl.includes('googleusercontent.com') ? `${selectedEmployee.photoUrl.split('=')[0]}=s256` : selectedEmployee.photoUrl;
+                const referenceImage = await faceapi.fetchImage(imageUrl);
+                const referenceDescriptor = await faceapi.detectSingleFace(referenceImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                if (!referenceDescriptor) {
+                    showMessage('verification-message', 'មិនអាចស្វែងរកមុខក្នុងរូបថតយោងបានទេ។', 'error');
+                    return;
+                }
+                startVerificationCamera(referenceDescriptor);
+            } catch (error) {
+                console.error("Error processing reference image:", error);
+                showMessage('verification-message', 'URL រូបថតមិនត្រឹមត្រូវ ឬមានបញ្ហា CORS។', 'error');
+            }
+        }
 
-        // Start the application
+        async function startVerificationCamera(referenceDescriptor) {
+            stopAllStreams();
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+                verificationVideo.srcObject = currentStream;
+                showMessage('verification-message', 'សូមដាក់មុខឲ្យចំកាមេរ៉ា');
+                const faceMatcher = new faceapi.FaceMatcher(referenceDescriptor);
+                faceVerificationInterval = setInterval(async () => {
+                    if (!currentStream || verificationVideo.paused || verificationVideo.ended) { clearInterval(faceVerificationInterval); return; }
+                    const displaySize = { width: verificationVideo.clientWidth, height: verificationVideo.clientHeight };
+                    faceapi.matchDimensions(verificationCanvas, displaySize);
+                    const detections = await faceapi.detectSingleFace(verificationVideo, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                    verificationCanvas.getContext('2d').clearRect(0, 0, verificationCanvas.width, verificationCanvas.height);
+                    if (detections) {
+                        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                        const bestMatch = faceMatcher.findBestMatch(detections.descriptor);
+                        const box = resizedDetections.detection.box;
+                        const drawBox = new faceapi.draw.DrawBox(box, { boxColor: bestMatch.label !== 'unknown' ? 'limegreen' : 'red' });
+                        drawBox.draw(verificationCanvas);
+                        if (bestMatch.label !== 'unknown') {
+                            clearInterval(faceVerificationInterval);
+                            showMessage('verification-message', 'ផ្ទៀងផ្ទាត់ជោគជ័យ!', 'success');
+                            speak('ផ្ទៀងផ្ទាត់ជោគជ័យ');
+                            localStorage.setItem('loggedInEmployeeId', selectedEmployee.id);
+                            localStorage.setItem('lastActivityTimestamp', Date.now().toString());
+                            setTimeout(() => {
+                                stopAllStreams();
+                                verificationStep.classList.add('hidden');
+                                adminQrGenerator.classList.add('hidden');
+                                displayCheckInOutStep();
+                            }, 1000);
+                        }
+                    }
+                }, 500);
+            } catch (err) {
+                showMessage('verification-message', 'មិនអាចបើកកាមេរ៉ាបានទេ។', 'error');
+                console.error("Camera access error:", err);
+            }
+        }
+
+        // --- QR & Geolocation Logic ---
+        function displayCheckInOutStep() {
+            document.getElementById('employee-photo').src = selectedEmployee.photoUrl;
+            document.getElementById('employee-name-display').textContent = selectedEmployee.name;
+            document.getElementById('employee-id-display').textContent = `ID: ${selectedEmployee.id}`;
+            updateLogDisplay();
+            checkInOutStep.classList.remove('hidden');
+            checkInOutTitle.textContent = "សូមស្កេន QR Code";
+            startQRScanner();
+        }
+
+        async function startQRScanner() {
+            showMessage('message', 'កំពុងបើកកាមេរ៉ា...', 'loading');
+            stopAllStreams();
+            try {
+                // IMPROVEMENT: Use less strict facingMode for better compatibility
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                qrVideo.srcObject = currentStream;
+                qrVideo.play();
+                document.getElementById('message').innerHTML = '';
+                qrScanner = requestAnimationFrame(tick);
+            } catch (err) {
+                console.error("Rear camera error:", err);
+                showMessage('message', 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។', 'error');
+            }
+        }
+
+        function tick() {
+            if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                const canvasElement = document.createElement('canvas');
+                const canvas = canvasElement.getContext('2d');
+                canvasElement.height = qrVideo.videoHeight;
+                canvasElement.width = qrVideo.videoWidth;
+                canvas.drawImage(qrVideo, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) { handleQRCode(code.data); return; }
+            }
+            qrScanner = requestAnimationFrame(tick);
+        }
+
+        function handleQRCode(qrData) {
+            cancelAnimationFrame(qrScanner);
+            showMessage('message', 'បានស្កេន! កំពុងពិនិត្យទីតាំង...', 'loading');
+            try {
+                const allowedAreaCoords = JSON.parse(qrData);
+                if (!Array.isArray(allowedAreaCoords) || allowedAreaCoords.length < 3) throw new Error("Invalid QR data: Not a valid polygon array.");
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userCoords = [position.coords.latitude, position.coords.longitude];
+                        if (isPointInPolygon(userCoords, allowedAreaCoords)) {
+                            wrongLocationAttempts = 0;
+                            stopAllStreams();
+                            submitAttendance();
+                        } else {
+                            wrongLocationAttempts++;
+                            if (wrongLocationAttempts > 4) {
+                                const msg = "ទូរស័ព្ទប្អូនអាចមានបញ្ហា សូមមកជួយក្រុមការងារផ្ទាល់";
+                                showMessage('message', msg, 'error');
+                                speak(msg);
+                                stopAllStreams();
+                                qrVideo.classList.add('hidden');
+                            } else {
+                                showMessage('message', 'ទីតាំង GPS មិនត្រឹមត្រូវ', 'error');
+                                speak('សូមប្អូនព្យាយាមម្ដងទៀត');
+                                setTimeout(startQRScanner, 3500);
+                            }
+                        }
+                    },
+                    (error) => {
+                        let errorMsg = 'មិនអាចទទួលបានទីតាំង GPS។';
+                        if (error.code === 1) errorMsg = 'សូមអនុញ្ញាតឱ្យកម្មវិធីប្រើប្រាស់ទីតាំង GPS។';
+                        else if (error.code === 2) errorMsg = 'មិនអាចកំណត់ទីតាំង GPS របស់អ្នកបានទេ។';
+                        else if (error.code === 3) errorMsg = 'หมดเวลาในการรับตำแหน่ง GPS';
+                        showMessage('message', errorMsg, 'error');
+                        speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
+                        setTimeout(startQRScanner, 3000);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } catch (e) {
+                console.error("QR Code Parse Error:", e);
+                showMessage('message', 'QR Code មិនត្រឹមត្រូវទេ។', 'error');
+                speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
+                setTimeout(startQRScanner, 3000);
+            }
+        }
+
+        // --- Data Submission ---
+        function submitAttendance() {
+            const lastLog = getTodaysLog().pop();
+            const action = (!lastLog || lastLog.action === 'Check Out') ? 'Check In' : 'Check Out';
+            showMessage('message', `កំពុងបញ្ជូន ${action}...`, 'loading');
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ employeeId: selectedEmployee.id, action: action }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    showMessage('message', `${action} បានកត់ត្រាដោយជោគជ័យ!`, 'success');
+                    speak(action === 'Check In' ? 'បាន ស្កេន ចូល ជោគជ័យ' : 'បាន ស្កេន ចេញ ជោគជ័យ');
+                    localStorage.setItem('lastActivityTimestamp', Date.now().toString());
+                    saveLog(action);
+                    updateLogDisplay();
+                } else {
+                    showMessage('message', result.message || 'An unknown error occurred.', 'error');
+                    speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting attendance:', error);
+                showMessage('message', `មានបញ្ហាក្នុងការបញ្ជូនទិន្នន័យ។`, 'error');
+                speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
+            });
+        }
+
+        // --- Local Log for UI & Utility Functions ---
+        function saveLog(action) {
+            const logs = JSON.parse(localStorage.getItem('attendanceLogs') || '{}');
+            const today = new Date().toISOString().slice(0, 10);
+            if (!logs[selectedEmployee.id]) logs[selectedEmployee.id] = {};
+            if (!logs[selectedEmployee.id][today]) logs[selectedEmployee.id][today] = [];
+            const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit'});
+            logs[selectedEmployee.id][today].push({ action, time });
+            localStorage.setItem('attendanceLogs', JSON.stringify(logs));
+        }
+        function getTodaysLog() {
+            if (!selectedEmployee) return [];
+            const logs = JSON.parse(localStorage.getItem('attendanceLogs') || '{}');
+            const today = new Date().toISOString().slice(0, 10);
+            return (logs[selectedEmployee.id] && logs[selectedEmployee.id][today]) ? logs[selectedEmployee.id][today] : [];
+        }
+        function updateLogDisplay() {
+            const todaysLog = getTodaysLog();
+            if (todaysLog.length === 0) {
+                logContent.innerHTML = `<p class="text-gray-400">មិនទាន់មានកំណត់ត្រាសម្រាប់ថ្ងៃនេះ</p>`;
+            } else {
+                logContent.innerHTML = todaysLog.map(log => `
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-semibold ${log.action === 'Check In' ? 'text-green-400' : 'text-orange-400'}">${log.action}</span>
+                        <span>${log.time}</span>
+                    </div>`).join('');
+            }
+        }
+        function isPointInPolygon(point, polygon) {
+            let x = point[0], y = point[1];
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                let xi = polygon[i][0], yi = polygon[i][1];
+                let xj = polygon[j][0], yj = polygon[j][1];
+                let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+        function stopAllStreams() {
+            if (faceVerificationInterval) clearInterval(faceVerificationInterval);
+            if (qrScanner) cancelAnimationFrame(qrScanner);
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+        }
+        function handleLogout() {
+            speak('បានចាកចេញ');
+            localStorage.removeItem('loggedInEmployeeId');
+            localStorage.removeItem('lastActivityTimestamp');
+            window.location.reload();
+        }
+        logoutButton.addEventListener('click', handleLogout);
+
+        // --- Initialization ---
+        async function initialize() {
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+                loadingScreen.innerHTML = `<div class="bg-red-900 border border-red-600 p-6 rounded-lg"><h2 class="text-xl font-semibold text-red-300">បញ្ហាសុវត្ថិភាព</h2><p class="mt-2 text-red-200">កម្មវិធីនេះត្រូវតែដំណើរការលើ HTTPS។</p></div>`;
+                return;
+            }
+            const savedEmployeeId = localStorage.getItem('loggedInEmployeeId');
+            const lastActivity = localStorage.getItem('lastActivityTimestamp');
+            const now = Date.now();
+            const fortyEightHours = 48 * 60 * 60 * 1000;
+            
+            await fetchEmployeeData();
+
+            if (savedEmployeeId && lastActivity && (now - parseInt(lastActivity, 10) < fortyEightHours)) {
+                selectedEmployee = employees.find(emp => emp.id === savedEmployeeId);
+                if (selectedEmployee) {
+                    loadingScreen.classList.add('hidden');
+                    displayCheckInOutStep();
+                } else { handleLogout(); }
+            } else {
+                localStorage.clear();
+                loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
+                try {
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/'),
+                        faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/'),
+                        faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/')
+                    ]);
+                } catch (error) {
+                    loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
+                    return;
+                }
+                loadingScreen.classList.add('hidden');
+                verificationStep.classList.remove('hidden');
+
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'admin') {
+                    adminQrGenerator.classList.remove('hidden');
+                    const allowedAreaCoords = [[11.414507824685131, 104.76383709398525],[11.414542661023914, 104.76376199213838],[11.41448547684292, 104.76373449949799],[11.414456556103309, 104.76380691913606]];
+                    new QRCode(document.getElementById("qrcode"), { text: JSON.stringify(allowedAreaCoords), width: 200, height: 200 });
+                }
+            }
+        }
+
         initialize();
+
+        // --- END OF FULL SCRIPT ---
     </script>
 </body>
 </html>
