@@ -79,7 +79,7 @@
                 <h2 id="employee-name-display" class="text-xl font-bold mt-2"></h2>
                 <p id="employee-id-display" class="text-gray-400"></p>
             </div>
-            <p class="text-lg mb-4">ការផ្ទៀងផ្ទាត់ជោគជ័យ!</p>
+            <p id="check-in-out-title" class="text-lg mb-4"></p>
             <div id="video-container" class="mb-4">
                 <video id="qr-video" playsinline></video>
             </div>
@@ -88,6 +88,9 @@
                 <h3 class="font-bold mb-2">កំណត់ត្រាវត្តមានថ្ងៃនេះ</h3>
                 <div id="log-content"></div>
             </div>
+             <button id="logout-button" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">
+                ចាកចេញ (Logout)
+            </button>
         </div>
         
         <!-- Admin QR Code Generator -->
@@ -112,7 +115,9 @@
         const adminQrGenerator = document.getElementById('admin-qr-generator');
         const verificationVideoContainer = document.getElementById('verification-video-container');
         const logContent = document.getElementById('log-content');
-        
+        const logoutButton = document.getElementById('logout-button');
+        const checkInOutTitle = document.getElementById('check-in-out-title');
+
         // Combobox elements
         const comboboxInput = document.getElementById('combobox-input');
         const comboboxOptions = document.getElementById('combobox-options');
@@ -274,6 +279,11 @@
 
                         if (bestMatch.label !== 'unknown') {
                             verificationMessageDiv.textContent = 'ផ្ទៀងផ្ទាត់ជោគជ័យ!';
+                            
+                            // Save session to localStorage
+                            localStorage.setItem('loggedInEmployeeId', selectedEmployee.id);
+                            localStorage.setItem('lastActivityTimestamp', Date.now().toString());
+
                             clearInterval(intervalId);
                             stopAllStreams();
                             verificationStep.classList.add('hidden');
@@ -296,19 +306,19 @@
             document.getElementById('employee-id-display').textContent = `ID: ${selectedEmployee.id}`;
             updateLogDisplay();
             checkInOutStep.classList.remove('hidden');
+            checkInOutTitle.textContent = "សូមស្កេន QR Code";
             startQRScanner();
         }
 
         async function startQRScanner() {
-            messageDiv.textContent = 'កំពុងបើកកាមេរ៉ាដើម្បីស្កេន QR Code...';
+            messageDiv.textContent = 'កំពុងបើកកាមេរ៉ា...';
             messageDiv.className = 'text-center mt-4 h-12 text-yellow-400';
             stopAllStreams();
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } });
                 qrVideo.srcObject = currentStream;
                 qrVideo.play();
-                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                messageDiv.className = 'text-center mt-4 h-12 text-white';
+                messageDiv.textContent = '';
                 qrScanner = requestAnimationFrame(tick);
             } catch (err) {
                  messageDiv.textContent = 'បរាជ័យក្នុងការបើកកាមេរ៉ាក្រោយ។';
@@ -363,8 +373,7 @@
                             }
                             
                             setTimeout(() => {
-                                messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                                messageDiv.className = 'text-center mt-4 h-12 text-white';
+                                messageDiv.textContent = '';
                                 qrScanner = requestAnimationFrame(tick); // Restart scanning
                             }, 3000);
                         }
@@ -375,8 +384,7 @@
                         messageDiv.className = 'text-center mt-4 h-12 text-red-500';
                         speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                         setTimeout(() => {
-                            messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                            messageDiv.className = 'text-center mt-4 h-12 text-white';
+                            messageDiv.textContent = '';
                             qrScanner = requestAnimationFrame(tick);
                         }, 3000);
                     },
@@ -388,8 +396,7 @@
                 messageDiv.className = 'text-center mt-4 h-12 text-red-500';
                 speak('បរាជ័យ សូមព្យាយាមម្ដងទៀត');
                 setTimeout(() => {
-                    messageDiv.textContent = 'សូមស្កេន QR Code របស់ទីតាំង';
-                    messageDiv.className = 'text-center mt-4 h-12 text-white';
+                    messageDiv.textContent = '';
                     qrScanner = requestAnimationFrame(tick);
                 }, 3000);
             }
@@ -424,6 +431,10 @@
                         messageDiv.textContent = `${action} បានកត់ត្រាដោយជោគជ័យ!`;
                         messageDiv.className = 'text-center mt-4 h-12 text-green-500';
                         speak(action === 'Check In' ? 'បាន ស្កេន ចូល ជោគជ័យ' : 'បាន ស្កេន ចេញ ជោគជ័យ');
+                        
+                        // Update last activity timestamp on successful action
+                        localStorage.setItem('lastActivityTimestamp', Date.now().toString());
+
                         saveLog(action);
                         updateLogDisplay();
                     } else {
@@ -497,6 +508,14 @@
                 qrScanner = null;
             }
         }
+        
+        function handleLogout() {
+            speak('បានចាកចេញ');
+            localStorage.removeItem('loggedInEmployeeId');
+            localStorage.removeItem('lastActivityTimestamp');
+            window.location.reload();
+        }
+        logoutButton.addEventListener('click', handleLogout);
 
         // --- Initialization ---
         async function initialize() {
@@ -509,41 +528,67 @@
                 `;
                 return;
             }
-
-            loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/';
-            try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-            } catch (error) {
-                 loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
-                 console.error("Model loading error:", error);
-                 return;
-            }
             
-            await fetchEmployeeData();
-            
-            loadingScreen.classList.add('hidden');
-            verificationStep.classList.remove('hidden');
+            // Check for saved session first
+            const savedEmployeeId = localStorage.getItem('loggedInEmployeeId');
+            const lastActivity = localStorage.getItem('lastActivityTimestamp');
+            const now = Date.now();
+            const fortyEightHours = 48 * 60 * 60 * 1000;
 
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('role') === 'admin') {
-                adminQrGenerator.classList.remove('hidden');
-                 const allowedAreaCoords = [
+            if (savedEmployeeId && lastActivity && (now - parseInt(lastActivity, 10) < fortyEightHours)) {
+                // User has a valid session
+                loadingMessage.textContent = 'កំពុងផ្ទុកទិន្នន័យបុគ្គលិក...';
+                await fetchEmployeeData();
+                selectedEmployee = employees.find(emp => emp.id === savedEmployeeId);
+
+                if (selectedEmployee) {
+                    loadingScreen.classList.add('hidden');
+                    displayCheckInOutStep();
+                } else {
+                    // Saved ID is invalid, start over
+                    handleLogout();
+                }
+            } else {
+                // No valid session, proceed with normal login flow
+                localStorage.removeItem('loggedInEmployeeId');
+                localStorage.removeItem('lastActivityTimestamp');
+                
+                loadingMessage.textContent = 'កំពុងរៀបចំប្រព័ន្ធសម្គាល់ផ្ទៃមុខ...';
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/weights/';
+                try {
+                    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+                } catch (error) {
+                     loadingMessage.textContent = 'បរាជ័យក្នុងការផ្ទុក Model សម្គាល់មុខ។';
+                     console.error("Model loading error:", error);
+                     return;
+                }
+                
+                await fetchEmployeeData();
+                
+                loadingScreen.classList.add('hidden');
+                verificationStep.classList.remove('hidden');
+
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'admin') {
+                    adminQrGenerator.classList.remove('hidden');
+                     const allowedAreaCoords = [
             [11.414501251790547, 104.76383038846086],
             [11.414528200657385, 104.76378210870215],
             [11.414488763290404, 104.76375595716618],
             [11.414460499840686, 104.76380960134254]
         ];
-                 new QRCode(document.getElementById("qrcode"), {
-                    text: JSON.stringify(allowedAreaCoords),
-                    width: 200,
-                    height: 200,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
+
+                     new QRCode(document.getElementById("qrcode"), {
+                        text: JSON.stringify(allowedAreaCoords),
+                        width: 200,
+                        height: 200,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+                }
             }
         }
 
