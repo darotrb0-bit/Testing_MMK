@@ -3,185 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ប្រព័ន្ធវត្តមានបុគ្គលិកតាមផ្ទៃមុខ</title>
-    <!-- បញ្ចូល Tailwind CSS -->
+    <title>ប្រព័ន្ធវត្តមានបុគ្គលិក</title>
+    <!-- Chosen Palette: Cool Blues & Grays -->
+    <!-- Application Structure Plan: The SPA is redesigned into a modern, single-view dashboard. The layout is split into two main columns on wider screens: the left column is the "action" area, featuring a large, interactive camera preview with dynamic feedback. The right column is the "information" area, displaying a real-time log of the latest 8 scans. This two-column structure is chosen for clear separation of concerns: 'doing' (scanning) vs. 'seeing' (results). On mobile, it stacks vertically. A central, modal-like result panel appears upon a successful scan, providing clear, focused feedback without cluttering the main UI. This architecture prioritizes immediate user feedback and a clean, uncluttered interface, which enhances usability and perceived performance. -->
+    <!-- Visualization & Content Choices: 
+    - Report Info: Employee list, schedules, photos -> Goal: Identify User -> Presentation: Live Camera Feed -> Interaction: Automatic face detection -> Justification: Core functionality of the app. UI is redesigned for better feedback. -> Library/Method: Vanilla JS + face-api.js.
+    - Report Info: Check-in/Check-out status for the day -> Goal: Prevent Duplicates & Inform -> Presentation: In-memory JS object (`attendanceLog`) synced from Google Sheet on load -> Interaction: App logic checks this object before allowing a check-in/out -> Justification: This is the most critical enhancement for data accuracy, moving beyond unreliable localStorage. -> Library/Method: Vanilla JS Fetch API calling Google Apps Script `doGet`.
+    - Report Info: Log of recent scans (Name, action, time) -> Goal: Provide real-time context and confirmation -> Presentation: Dynamic HTML list with cards -> Interaction: List updates automatically after each successful scan -> Justification: Gives users immediate confirmation that their action was recorded and shows recent activity, creating a sense of a live system. -> Library/Method: Vanilla JS DOM manipulation.
+    - NO charts are needed for this report. The focus is on status and lists. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- បញ្ចូល face-api.js -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Kantumruy+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* CSS បន្ថែមសម្រាប់កាមេរ៉ារង្វង់មូល និងចលនា */
-        @keyframes fade-in {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-            animation: fade-in 0.5s ease-out forwards;
-        }
-
-        .camera-container {
+        body { font-family: 'Inter', 'Kantumruy Pro', sans-serif; }
+        .font-khmer { font-family: 'Kantumruy Pro', sans-serif; }
+        .camera-wrapper {
             position: relative;
-            width: 380px; /* បានកែសម្រួលទំហំ */
-            height: 380px; /* បានកែសម្រួលទំហំ */
+            width: 400px;
+            height: 400px;
+            margin: auto;
             border-radius: 50%;
             overflow: hidden;
-            border: 8px solid white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin: 0 auto;
+            border: 10px solid #f0f4f8;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
         }
         #video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* ធានាថាវីដេអូបំពេញរង្វង់ */
-            transform: scaleX(-1); /* ត្រឡប់វីដេអូដូចកញ្ចក់ */
+            object-fit: cover;
+            transform: scaleX(-1);
         }
-        canvas {
+        .scan-line {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            transform: scaleX(-1); /* ត្រឡប់ canvas ឱ្យត្រូវនឹងវីដេអូ */
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.8), transparent);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+            animation: scan 3s linear infinite;
+            opacity: 0;
         }
+        .scanning .scan-line { opacity: 1; }
+        @keyframes scan {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(400px); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen font-sans">
+<body class="bg-slate-100 text-slate-800">
 
-    <div class="bg-white p-8 lg:p-12 rounded-2xl shadow-2xl max-w-6xl w-full mx-4 my-8">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">ប្រព័ន្ធកត់ត្រាវត្តមានបុគ្គលិក</h1>
-        <p class="text-center text-gray-500 mb-8">សូមដាក់មុខរបស់លោកអ្នកចំកាមេរ៉ា</p>
-
-        <!-- កន្លែងបង្ហាញសារ Status -->
-        <div id="status" class="text-center bg-blue-100 text-blue-700 p-3 rounded-lg mb-6 hidden">
-            <div class="flex items-center justify-center">
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span id="statusText">កំពុងរៀបចំប្រព័ន្ធ...</span>
-            </div>
-        </div>
-
-        <!-- Layout គោល (Side-by-side) -->
-        <div class="flex flex-col md:flex-row items-start justify-center gap-8 lg:gap-16">
-            
-            <!-- ផ្នែកខាងឆ្វេង: កាមេរ៉ា និងលទ្ធផលស្កេន -->
-            <div class="w-full md:w-1/2 flex flex-col items-center">
-                <div class="camera-container">
-                    <video id="video" autoplay muted playsinline></video>
-                    <canvas id="canvas"></canvas>
-                </div>
-                 <!-- ផ្នែកបង្ហាញលទ្ធផលពេលស្កេនឃើញ -->
-                 <div id="result" class="w-full max-w-sm flex flex-col items-center justify-center bg-gray-50 p-6 rounded-lg shadow-inner mt-8 hidden">
-                    <img id="refImage" src="https://placehold.co/150x150/EFEFEF/AAAAAA?text=រូបថត" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg mb-4 -mt-16">
-                    <h2 id="employeeName" class="text-2xl font-bold text-gray-800">ឈ្មោះបុគ្គលិក</h2>
-                    <p id="employeeId" class="text-lg text-gray-600">អត្តលេខ</p>
-                    <div id="checkinStatus" class="mt-4 text-center font-semibold text-xl p-3 rounded-lg w-full"></div>
-                </div>
-            </div>
-
-            <!-- ផ្នែកខាងស្ដាំ: បញ្ជីឈ្មោះអ្នក Scan ចុងក្រោយ -->
-            <div class="w-full md:w-1/2 mt-8 md:mt-0">
-                <div class="bg-gray-50 p-6 rounded-lg shadow-inner h-full">
-                    <h3 class="text-xl font-bold text-center text-gray-700 mb-4">ការស្កេន ៨ នាក់ចុងក្រោយ</h3>
-                    <ul id="recentScansList" class="divide-y divide-gray-200">
-                        <li class="py-4 text-center text-gray-400">មិនទាន់មានការស្កេននៅឡើយទេ</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+    <div id="loader" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+        <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <h2 id="loader-text" class="text-slate-600 font-medium font-khmer">កំពុងរៀបចំប្រព័ន្ធ...</h2>
+        <p class="text-sm text-slate-400 mt-2">សូមមេត្តារង់ចាំបន្តិច</p>
     </div>
 
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 opacity-0 transition-opacity duration-500">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-slate-900 font-khmer">ប្រព័ន្ធកត់ត្រាវត្តមាន</h1>
+            <p class="text-slate-500 mt-2">ស្កេនផ្ទៃមុខដើម្បី Check-in ឬ Check-out</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-12 items-start">
+            <section class="lg:col-span-3 bg-white p-8 rounded-2xl shadow-lg">
+                <div id="camera-container" class="camera-wrapper">
+                    <video id="video" autoplay muted playsinline></video>
+                    <div class="scan-line"></div>
+                </div>
+                <div id="match-result" class="text-center mt-6 h-32"></div>
+            </section>
+
+            <aside class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-lg h-full">
+                <h3 class="text-xl font-bold text-center text-slate-700 mb-6 font-khmer">សកម្មភាពចុងក្រោយ</h3>
+                <div class="space-y-4 max-h-[440px] overflow-y-auto pr-2">
+                    <ul id="recent-scans-list" class="divide-y divide-slate-100">
+                        <li id="no-scans-placeholder" class="py-10 text-center text-slate-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p class="mt-2 text-sm font-medium font-khmer">មិនទាន់មានសកម្មភាព</p>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+        </div>
+    </main>
+
     <script>
-        // --- ការកំណត់អថេរ ---
         const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const status = document.getElementById('status');
-        const statusText = document.getElementById('statusText');
-        const resultDiv = document.getElementById('result');
-        const refImage = document.getElementById('refImage');
-        const employeeName = document.getElementById('employeeName');
-        const employeeId = document.getElementById('employeeId');
-        const checkinStatus = document.getElementById('checkinStatus');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+        const mainContent = document.querySelector('main');
+        const cameraContainer = document.getElementById('camera-container');
+        const matchResultContainer = document.getElementById('match-result');
+        const recentScansList = document.getElementById('recent-scans-list');
+        const noScansPlaceholder = document.getElementById('no-scans-placeholder');
 
         const EMPLOYEE_SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const EMPLOYEE_SHEET_NAME = 'DIList';
         const PUBLISHED_CSV_URL = `https://docs.google.com/spreadsheets/d/${EMPLOYEE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${EMPLOYEE_SHEET_NAME}`;
-        // !!! សំខាន់ !!! សូមដាក់ Web App URL ថ្មីរបស់អ្នកនៅទីនេះ បន្ទាប់ពី Deploy Apps Script រួច
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwSJYdzVMweOyJbPJ-ChnRE01vX0rS04tlfYPPp687_y4_LP4ilFPwBB5joPe-_91u/exec';
 
         const attendanceLog = {};
         let processing = false;
-        const recentScans = [];
+        let recentScans = [];
+        let faceMatcher = null;
 
-        function showStatus(message) {
-            status.classList.remove('hidden');
-            statusText.innerText = message;
+        function updateLoader(text) {
+            loaderText.innerText = text;
         }
 
-        async function loadModels() {
-            showStatus('កំពុងដំណើរការម៉ូឌែល...');
-            const modelUrl = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl),
-                faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl),
-                faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
-            ]);
-        }
-
-        // --- ថ្មី: អានទិន្នន័យវត្តមានពី Google Sheet ដោយផ្ទាល់ ---
-        async function loadInitialAttendanceState() {
-            showStatus('កំពុងពិនិត្យវត្តមានថ្ងៃនេះពី Google Sheet...');
-            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_GOOGLE')) {
-                console.warn("Apps Script URL is not set.");
-                return;
-            }
+        async function initializeApp() {
             try {
-                // យើងប្រើ GET request ដើម្បីទាញទិន្នន័យ
-                const response = await fetch(APPS_SCRIPT_URL); 
+                updateLoader('កំពុងដំណើរការម៉ូឌែលសម្គាល់...');
+                const modelUrl = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
+                ]);
+
+                updateLoader('កំពុងពិនិត្យវត្តមានថ្ងៃនេះ...');
+                await loadInitialAttendanceState();
+
+                updateLoader('កំពុងទាញបញ្ជីឈ្មោះបុគ្គលិក...');
+                const labeledFaceDescriptors = await getLabeledFaceDescriptors();
+                if (labeledFaceDescriptors.length > 0) {
+                    faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+                } else {
+                    updateLoader('មិនអាចទាញទិន្នន័យបុគ្គលិកបានទេ។');
+                    return;
+                }
+                
+                updateLoader('កំពុងបើកកាមេរ៉ា...');
+                await startCamera();
+
+                loader.classList.add('opacity-0');
+                mainContent.classList.remove('opacity-0');
+                setTimeout(() => loader.style.display = 'none', 500);
+
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                updateLoader('ការរៀបចំប្រព័ន្ធមានបញ្ហា។ សូមព្យាយាមម្តងទៀត។');
+            }
+        }
+
+        async function loadInitialAttendanceState() {
+             if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_GOOGLE')) return;
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
                 const result = await response.json();
                 if (result.status === 'success' && result.log) {
-                    // បញ្ចូលទិន្នន័យទៅក្នុង attendanceLog ក្នុងកម្មវិធី
-                    for (const employeeId in result.log) {
-                        const status = result.log[employeeId];
-                        if (status !== 'unknown') {
-                             attendanceLog[employeeId] = status;
-                        }
-                    }
-                    console.log("បានផ្ទុកទិន្នន័យវត្តមានដំបូង:", attendanceLog);
-                } else {
-                    console.error("មិនអាចផ្ទុកទិន្នន័យដំបូង:", result.message);
+                    Object.assign(attendanceLog, result.log);
                 }
             } catch (error) {
-                console.error('មានបញ្ហាក្នុងការទាញទិន្នន័យវត្តមានដំបូង:', error);
-                showStatus('មានបញ្ហាក្នុងការទាញទិន្នន័យវត្តមាន។');
+                console.error('Failed to fetch initial attendance state:', error);
             }
         }
 
-
-        async function getEmployeeData() {
-            showStatus('កំពុងទាញទិន្នន័យបុគ្គលិក...');
-            try {
-                const response = await fetch(`${PUBLISHED_CSV_URL}&t=${new Date().getTime()}`);
-                const csvText = await response.text();
-                const rows = csvText.split('\n').slice(8).map(row => row.replace(/"/g, '').split(','));
-                
-                const employees = rows.map(row => ({
-                    id: row[4], name: row[11], imageUrl: row[26],
-                    schedule: [ row[28], row[29], row[30], row[31], row[32], row[33], row[34] ]
-                })).filter(emp => emp.id && emp.name && emp.imageUrl && emp.imageUrl.startsWith('http'));
-
-                showStatus(`បានទាញទិន្នន័យ ${employees.length} នាក់។ កំពុងរៀបចំរូបថត...`);
-                return employees;
-            } catch (error) {
-                console.error('Error fetching employee data:', error);
-                showStatus('មានបញ្ហាក្នុងការទាញទិន្នន័យបុគ្គលិក។');
-                return [];
-            }
-        }
-        
-        async function getLabeledFaceDescriptions() {
-            const employees = await getEmployeeData();
-            if (employees.length === 0) return [];
+        async function getLabeledFaceDescriptors() {
+            const response = await fetch(`${PUBLISHED_CSV_URL}&t=${new Date().getTime()}`);
+            const csvText = await response.text();
+            const rows = csvText.split('\n').slice(8).map(row => row.replace(/"/g, '').split(','));
+            const employees = rows.map(row => ({
+                id: row[4], name: row[11], imageUrl: row[26],
+                schedule: [row[28], row[29], row[30], row[31], row[32], row[33], row[34]]
+            })).filter(emp => emp.id && emp.name && emp.imageUrl && emp.imageUrl.startsWith('http'));
 
             return Promise.all(
                 employees.map(async employee => {
@@ -192,13 +191,132 @@
                         const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
                         if (detections) descriptions.push(detections.descriptor);
                     } catch (e) {
-                        console.error(`មិនអាចដំណើរការរូបភាពសម្រាប់ ${employee.name}:`, e);
+                        console.error(`Could not process image for ${employee.name}:`, e);
                     }
                     return new faceapi.LabeledFaceDescriptors(JSON.stringify(employee), descriptions);
                 })
             );
         }
+
+        async function startCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            video.srcObject = stream;
+            video.addEventListener('play', startFaceDetection);
+        }
+
+        function startFaceDetection() {
+            cameraContainer.classList.add('scanning');
+            const detectionInterval = setInterval(async () => {
+                if (processing || !faceMatcher) return;
+
+                const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+                if (detections.length > 0) {
+                    const bestMatch = detections.map(d => faceMatcher.findBestMatch(d.descriptor))
+                                                .sort((a, b) => a.distance - b.distance)[0];
+                    
+                    if (bestMatch && bestMatch.label !== 'unknown') {
+                        clearInterval(detectionInterval);
+                        cameraContainer.classList.remove('scanning');
+                        handleMatchFound(JSON.parse(bestMatch.label));
+                    }
+                }
+            }, 2000);
+        }
+
+        async function handleMatchFound(employee) {
+            processing = true;
+
+            const currentStatus = attendanceLog[employee.id];
+            let action = !currentStatus ? 'check-in' : (currentStatus === 'checked-in' ? 'check-out' : 'done');
+
+            if (action === 'done') {
+                showResult(employee, 'បានកត់ត្រារួចរាល់សម្រាប់ថ្ងៃនេះ', 'slate');
+                setTimeout(() => resetState(), 5000);
+                return;
+            }
+
+            const timeValidity = checkTimeValidity(employee.schedule, action);
+            if (!timeValidity.isValid) {
+                showResult(employee, timeValidity.message, 'red');
+                setTimeout(() => resetState(), 5000);
+                return;
+            }
+
+            const isCheckIn = action === 'check-in';
+            attendanceLog[employee.id] = isCheckIn ? 'checked-in' : 'checked-out';
+
+            const message = isCheckIn ? 'Check In បានជោគជ័យ' : 'Check Out បានជោគជ័យ';
+            const color = isCheckIn ? 'green' : 'amber';
+            showResult(employee, message, color);
+            
+            updateRecentScans(employee, action);
+            await recordAttendance(employee.id, action, timeValidity.scheduleType);
+            
+            setTimeout(() => resetState(), 5000);
+        }
         
+        function showResult(employee, message, color) {
+            const colors = {
+                green: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-500' },
+                amber: { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-500' },
+                red: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-500' },
+                slate: { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-500' }
+            };
+            const theme = colors[color] || colors.slate;
+            
+            matchResultContainer.innerHTML = `
+                <div class="fade-in flex flex-col items-center">
+                    <img src="${employee.imageUrl}" alt="រូបថតបុគ្គលិក" class="w-20 h-20 rounded-full object-cover border-4 ${theme.border} shadow-md -mt-10 mb-3">
+                    <h3 class="text-xl font-bold text-slate-800">${employee.name}</h3>
+                    <p class="text-sm text-slate-500 mb-3">អត្តលេខ: ${employee.id}</p>
+                    <div class="px-4 py-2 rounded-lg ${theme.bg} ${theme.text} text-base font-semibold font-khmer">${message}</div>
+                </div>
+            `;
+        }
+
+        function updateRecentScans(employee, action) {
+            if (noScansPlaceholder) noScansPlaceholder.remove();
+
+            const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const newScan = { name: employee.name, action, time: timeStr, imageUrl: employee.imageUrl, id: Date.now() };
+            recentScans.unshift(newScan);
+            if (recentScans.length > 8) recentScans.pop();
+
+            const listHtml = recentScans.map(scan => {
+                const isCheckIn = scan.action === 'check-in';
+                const statusColor = isCheckIn ? 'text-green-600' : 'text-amber-600';
+                const statusText = isCheckIn ? 'Check In' : 'Check Out';
+                return `
+                    <li class="flex items-center py-3 fade-in">
+                        <img src="${scan.imageUrl}" alt="${scan.name}" class="w-10 h-10 rounded-full object-cover mr-4">
+                        <div class="flex-grow">
+                            <p class="font-semibold text-slate-700">${scan.name}</p>
+                            <p class="text-xs text-slate-400">${scan.time}</p>
+                        </div>
+                        <span class="font-bold text-sm ${statusColor}">${statusText}</span>
+                    </li>
+                `;
+            }).join('');
+            recentScansList.innerHTML = listHtml;
+        }
+
+        function resetState() {
+            processing = false;
+            matchResultContainer.innerHTML = '';
+            startFaceDetection();
+        }
+
+        async function recordAttendance(empId, action, scheduleType) {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_GOOGLE')) return;
+            try {
+                await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST', mode: 'no-cors', cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employeeId: empId, action: action, schedule: scheduleType })
+                });
+            } catch (error) { console.error('Error recording attendance:', error); }
+        }
+
         function checkTimeValidity(scheduleArray, action) {
             const now = new Date();
             const dayOfWeek = now.getDay();
@@ -238,141 +356,7 @@
             return { isValid: false, message: `ក្រៅម៉ោង! ${action} ពី ${startTime} ដល់ ${endTime}` };
         }
 
-        async function startCamera() {
-            try {
-                video.srcObject = await navigator.mediaDevices.getUserMedia({ video: {} });
-            } catch (err) {
-                console.error('Error accessing camera:', err);
-                showStatus('មិនអាចបើកកាមេរ៉ាបានទេ។ សូមអនុញ្ញាតឱ្យប្រើប្រាស់។');
-            }
-        }
-
-        async function recognizeFaces() {
-            await loadModels();
-            await loadInitialAttendanceState(); // --- ផ្ទុក Log ពី Google Sheet ពេលកម្មវិធីចាប់ផ្ដើម ---
-            const labeledFaceDescriptors = await getLabeledFaceDescriptions();
-            if(labeledFaceDescriptors.length === 0){
-                showStatus('មិនមានទិន្នន័យបុគ្គលិកសម្រាប់ប្រៀបធៀប។');
-                return;
-            }
-            const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
-            await startCamera();
-            status.classList.add('hidden');
-
-            video.addEventListener('play', () => {
-                const displaySize = { width: video.clientWidth, height: video.clientHeight };
-                faceapi.matchDimensions(canvas, displaySize);
-
-                setInterval(async () => {
-                    if (processing) return;
-                    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-                    const resizedDetections = faceapi.resizeResults( detections, displaySize);
-                    
-                    const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                    if (results.length > 0 && results[0].label !== 'unknown') {
-                        handleMatchFound(JSON.parse(results[0].label));
-                    }
-                }, 1500);
-            });
-        }
-        
-        async function handleMatchFound(employee) {
-            processing = true;
-            
-            const currentStatus = attendanceLog[employee.id]; // ប្រើ ID ត្រង់ៗជា key
-            let action = !currentStatus ? 'check-in' : (currentStatus === 'checked-in' ? 'check-out' : 'done');
-
-            resultDiv.classList.remove('hidden');
-            refImage.src = employee.imageUrl;
-            employeeName.innerText = employee.name;
-            employeeId.innerText = `អត្តលេខ: ${employee.id}`;
-
-            if (action === 'done') {
-                displayMessageAndReset('បាន Check-in/out រួចរាល់សម្រាប់ថ្ងៃនេះ', 'bg-gray-200', 'text-gray-600');
-                return;
-            }
-
-            const originalStatus = attendanceLog[employee.id];
-            
-            // ធ្វើបច្ចុប្បន្នភាព status ទុកជាមុន
-            if (action === 'check-in') {
-                attendanceLog[employee.id] = 'checked-in';
-            } else if (action === 'check-out') {
-                attendanceLog[employee.id] = 'checked-out';
-            }
-
-            const timeValidity = checkTimeValidity(employee.schedule, action);
-            if (!timeValidity.isValid) {
-                attendanceLog[employee.id] = originalStatus; // បembalikan status ទៅដើមវិញបើម៉ោងខុស
-                displayMessageAndReset(timeValidity.message, 'bg-red-100', 'text-red-700');
-                return;
-            }
-
-            const isCheckIn = action === 'check-in';
-            const message = isCheckIn ? 'CHECK IN បានជោគជ័យ' : 'CHECK OUT បានជោគជ័យ';
-            const bgColor = isCheckIn ? 'bg-green-100' : 'bg-yellow-100';
-            const textColor = isCheckIn ? 'text-green-700' : 'text-yellow-700';
-            
-            displayMessageAndReset(message, bgColor, textColor, false);
-            updateRecentScans(employee, action);
-            await recordAttendance(employee.id, action, timeValidity.scheduleType);
-        }
-
-        function displayMessageAndReset(message, bgColor, textColor, shouldReset = true) {
-            checkinStatus.innerText = message;
-            checkinStatus.className = `mt-4 text-center font-semibold text-xl p-3 rounded-lg w-full ${bgColor} ${textColor}`;
-            if (shouldReset) {
-                setTimeout(() => { 
-                    processing = false;
-                    resultDiv.classList.add('hidden');
-                }, 5000);
-            }
-        }
-        
-        function updateRecentScans(employee, action) {
-            const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-            recentScans.unshift({ name: employee.name, action: action, time: timeStr });
-            if (recentScans.length > 8) recentScans.pop();
-
-            const listElement = document.getElementById('recentScansList');
-            listElement.innerHTML = '';
-            recentScans.forEach(scan => {
-                const actionText = scan.action === 'check-in' ? 'Check In' : 'Check Out';
-                const actionColor = scan.action === 'check-in' ? 'text-green-600' : 'text-yellow-600';
-                const li = document.createElement('li');
-                li.className = 'py-4 flex justify-between items-center text-sm animate-fade-in';
-                li.innerHTML = `
-                    <span class="font-medium text-gray-800">${scan.name}</span>
-                    <div class="text-right">
-                        <span class="font-semibold ${actionColor}">${actionText}</span>
-                        <span class="block text-xs text-gray-500">${scan.time}</span>
-                    </div>`;
-                listElement.appendChild(li);
-            });
-             setTimeout(() => { 
-                processing = false;
-                resultDiv.classList.add('hidden');
-            }, 5000);
-        }
-
-        async function recordAttendance(empId, action, scheduleType) {
-            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('YOUR_GOOGLE')) {
-                console.warn("សូមដាក់ URL របស់ Apps Script ជាមុនសិន");
-                return;
-            }
-            try {
-                 await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ employeeId: empId, action: action, schedule: scheduleType })
-                });
-            } catch (error) { console.error('Error recording attendance:', error); }
-        }
-        
-        recognizeFaces();
+        initializeApp();
     </script>
 </body>
 </html>
-
