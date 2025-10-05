@@ -75,7 +75,7 @@
     <script>
         // --- START OF FULL SCRIPT ---
 
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwSJYdzVMweOyJbPJ-ChnRE01vX0rS04tlfYPPp687_y4_LP4ilFPwBB5joPe-_91u/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxVk-h1hW8g-_Z-rViFVzzRN8h1b9fNjoleNjj1gaHd42X3C66vVJi1HJARXYTB81rG/exec';
 
         // --- DOM Elements ---
         const verificationVideo = document.getElementById('verification-video');
@@ -259,7 +259,6 @@
             showMessage('message', 'កំពុងបើកកាមេរ៉ា...', 'loading');
             stopAllStreams();
             try {
-                // IMPROVEMENT: Use less strict facingMode for better compatibility
                 currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 qrVideo.srcObject = currentStream;
                 qrVideo.play();
@@ -456,7 +455,16 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('role') === 'admin') {
                     adminQrGenerator.classList.remove('hidden');
-                    const allowedAreaCoords = [[11.414507824685131, 104.76383709398525],[11.414542661023914, 104.76376199213838],[11.41448547684292, 104.76373449949799],[11.414456556103309, 104.76380691913606]];
+                    
+                    // *** THIS IS THE UPDATED PART ***
+                    const allowedAreaCoords = [
+                        [11.414644051244176, 104.76389953785764],
+                        [11.414680859433401, 104.76382510655895],
+                        [11.414402168735643, 104.76368898445364],
+                        [11.414364703220496, 104.76376676851353]
+                    ];
+                    // *** END OF UPDATE ***
+
                     new QRCode(document.getElementById("qrcode"), { text: JSON.stringify(allowedAreaCoords), width: 200, height: 200 });
                 }
             }
