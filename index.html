@@ -126,7 +126,7 @@
         const EMPLOYEE_SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const EMPLOYEE_SHEET_NAME = 'DIList';
         const PUBLISHED_CSV_URL = `https://docs.google.com/spreadsheets/d/${EMPLOYEE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${EMPLOYEE_SHEET_NAME}`;
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx1R73GM37Ys4VdETHSPrJGnc-h9_upi676KBXZnM_-slZvPjM3UCH7y6PHEXMZIlVHw/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxwSJYdzVMweOyJbPJ-ChnRE01vX0rS04tlfYPPp687_y4_LP4ilFPwBB5joPe-_91u/exec';
 
         const attendanceLog = {};
         let processing = false;
@@ -401,8 +401,8 @@
                     validWindows.push({ action: 'check-out', start: (dayOfWeek === 5 ? 15*60+15 : 17*60+30), end: 20*60+4 });
                     break;
                 case "ពេលយប់":
-                    validWindows.push({ action: 'check-in', start: 20*60+35, end: 20*60+42 });
-                    validWindows.push({ action: 'check-out', start: 20*60+30, end: 22*60+4 });
+                    validWindows.push({ action: 'check-in', start: 17*60+45, end: 19*60+44 });
+                    validWindows.push({ action: 'check-out', start: 20*60+55, end: 22*60+4 });
                     break;
             }
 
