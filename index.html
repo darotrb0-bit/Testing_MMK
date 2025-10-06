@@ -169,9 +169,9 @@
         async function initializeApp() {
             try {
                 updateLoader('កំពុងដំណើរការម៉ូឌែលសម្គាល់...');
-                const modelUrl = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+                const modelUrl = './models'; // Using local models for speed
                 await Promise.all([
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(modelUrl),
+                    faceapi.nets.tinyFaceDetector.loadFromUri(modelUrl), // --- បានកែសម្រួល: ប្រើ TinyFaceDetector ---
                     faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl),
                     faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
                 ]);
@@ -179,11 +179,8 @@
                 updateLoader('កំពុងបើកកាមេរ៉ា...');
                 await startCamera();
 
-                // --- បានកែសម្រួលនៅទីនេះ: ដំណើរការ function ទាំងពីរ song song ---
-                // Start loading sheet data in the background
                 loadSheetData();
 
-                // Hide loader and show main content immediately after camera starts
                 loader.classList.add('opacity-0');
                 mainContent.classList.remove('opacity-0');
                 setTimeout(() => loader.style.display = 'none', 500);
@@ -198,7 +195,8 @@
             await loadInitialAttendanceState();
             const labeledFaceDescriptors = await getLabeledFaceDescriptors();
             if (labeledFaceDescriptors && labeledFaceDescriptors.length > 0) {
-                faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+                // --- បានកែសម្រួល: ធ្វើឱ្យលក្ខខណ្ឌតឹងរ៉ឹងជាងមុន (0.55) ---
+                faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.55);
                 console.log('Face matcher is ready.');
             } else {
                 console.error('Could not create face matcher.');
@@ -231,7 +229,8 @@
                 try {
                     const imageUrl = employee.imageUrl;
                     const img = await faceapi.fetchImage(imageUrl);
-                    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                    // --- បានកែសម្រួល: ប្រើ TinyFaceDetector ពេលរៀបចំទិន្នន័យដំបូង ---
+                    const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                     if (detection) {
                         return new faceapi.LabeledFaceDescriptors(JSON.stringify(employee), [detection.descriptor]);
                     }
@@ -261,14 +260,13 @@
                     return;
                 }
                 
-                // --- បានកែសម្រួលនៅទីនេះ: ពិនិត្យមើលថា faceMatcher រួចរាល់ហើយឬនៅ ---
                 if (!faceMatcher) {
-                    console.log('Face matcher is not ready yet, waiting...');
                     requestAnimationFrame(detect);
                     return;
                 }
-
-                const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
+                
+                // --- បានកែសម្រួល: ប្រើ TinyFaceDetectorOptions សម្រាប់ល្បឿន ---
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
                 const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
                 
                 if (detection) {
