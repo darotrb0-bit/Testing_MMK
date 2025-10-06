@@ -104,7 +104,7 @@
             <p id="registration-status" class="text-center text-sm font-medium h-6 mb-4"></p>
 
             <div class="flex items-center justify-center gap-4">
-                <button id="capture-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition font-khmer">ថតរូប</button>
+                <button id="capture-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition font-khmer disabled:bg-slate-300" disabled>ថតរូប</button>
                 <button id="save-btn" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition font-khmer disabled:bg-slate-300" disabled>រក្សាទុក</button>
                 <button id="cancel-btn" class="bg-slate-200 text-slate-800 font-bold py-2 px-6 rounded-lg hover:bg-slate-300 transition font-khmer">បោះបង់</button>
             </div>
@@ -186,7 +186,7 @@
         let registrationStream = null;
         let isDetectionRunning = false;
         
-        function handleStart(isRegistration = false) {
+        async function handleStart(isRegistration = false) {
             startOverlay.classList.add('opacity-0');
             loader.classList.remove('hidden');
             loader.style.display = 'flex';
@@ -198,9 +198,18 @@
 
             setTimeout(async () => {
                 startOverlay.style.display = 'none';
-                await initializeApp();
+
+                const success = await initializeCoreApp();
+                if (!success) return;
+
+                loader.classList.add('opacity-0');
+                setTimeout(() => loader.style.display = 'none', 500);
+
                 if (isRegistration) {
                     startRegistrationBtn.click();
+                } else {
+                    mainContent.classList.remove('opacity-0');
+                    await startCamera();
                 }
             }, 500);
         }
@@ -225,8 +234,8 @@
             loaderText.innerText = text;
         }
 
-        async function initializeApp() {
-            try {
+        async function initializeCoreApp() {
+             try {
                 updateLoader('កំពុងដំណើរការម៉ូឌែលសម្គាល់...');
                 const modelUrl = './models';
                 await Promise.all([
@@ -234,19 +243,14 @@
                     faceapi.nets.faceLandmark68Net.loadFromUri(modelUrl),
                     faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
                 ]);
-
-                updateLoader('កំពុងបើកកាមេរ៉ា...');
-                await startCamera();
-
-                loadSheetData();
-
-                loader.classList.add('opacity-0');
-                mainContent.classList.remove('opacity-0');
-                setTimeout(() => loader.style.display = 'none', 500);
-
+                
+                updateLoader('កំពុងទាញទិន្នន័យ...');
+                await loadSheetData();
+                return true;
             } catch (error) {
-                console.error("Initialization failed:", error);
-                updateLoader('ការរៀបចំប្រព័ន្ធមានបញ្ហា។ សូមព្យាយាមម្តងទៀត។');
+                console.error("Core Initialization failed:", error);
+                updateLoader('ការរៀបចំប្រព័ន្ធមានបញ្ហា។');
+                return false;
             }
         }
         
@@ -307,9 +311,13 @@
         }
 
         async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-            video.srcObject = stream;
-            video.addEventListener('play', startFaceDetection);
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                video.srcObject = stream;
+                video.addEventListener('play', startFaceDetection);
+            } catch (err) {
+                 updateLoader('មិនអាចបើកកាមេរ៉ាបានទេ។');
+            }
         }
 
         function startFaceDetection() {
@@ -447,11 +455,37 @@
             stopRegistrationCamera();
             registrationStatus.textContent = '';
             saveBtn.disabled = true;
+            captureBtn.disabled = true; // --- បានកែសម្រួល: បិទប៊ូតុងថតរូបវិញ ---
+            captureBtn.classList.add('disabled:bg-slate-300');
             employeeSelectInput.value = '';
             startFaceDetection();
         });
 
+        employeeSelectInput.addEventListener('input', () => {
+            const selectedValue = employeeSelectInput.value;
+            const isValidEmployee = allEmployees.some(emp => `${emp.id} - ${emp.name}` === selectedValue);
+            
+            if (isValidEmployee) {
+                captureBtn.disabled = false;
+                captureBtn.classList.remove('disabled:bg-slate-300');
+                registrationStatus.textContent = '';
+                registrationStatus.classList.remove('text-red-600');
+            } else {
+                captureBtn.disabled = true;
+                captureBtn.classList.add('disabled:bg-slate-300');
+            }
+        });
+
         captureBtn.addEventListener('click', async () => {
+            const selectedValue = employeeSelectInput.value;
+            const isValidEmployee = allEmployees.some(emp => `${emp.id} - ${emp.name}` === selectedValue);
+
+            if (!isValidEmployee) {
+                registrationStatus.textContent = 'សូមជ្រើសរើសឈ្មោះបុគ្គលិកឱ្យបានត្រឹមត្រូវ។';
+                registrationStatus.classList.add('text-red-600');
+                return;
+            }
+
             registrationStatus.textContent = 'កំពុងវិភាគគុណភាពរូប...';
             registrationStatus.classList.remove('text-red-600', 'text-green-600');
             
@@ -505,7 +539,6 @@
                 registrationStatus.classList.add('text-green-600');
 
                 setTimeout(() => {
-                    cancelBtn.click();
                     location.reload();
                 }, 2000);
 
