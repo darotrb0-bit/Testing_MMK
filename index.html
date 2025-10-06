@@ -61,7 +61,17 @@
 </head>
 <body class="bg-slate-100 text-slate-800">
 
-    <div id="loader" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+    <div id="start-overlay" class="fixed inset-0 bg-slate-100 z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-slate-900 font-khmer">ប្រព័ន្ធកត់ត្រាវត្តមាន</h1>
+            <p class="text-slate-500 mt-2 mb-8">ស្កេនផ្ទៃមុខដើម្បី Check-in ឬ Check-out</p>
+            <button id="start-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 font-khmer text-lg">
+                ចាប់ផ្តើមប្រព័ន្ធ
+            </button>
+        </div>
+    </div>
+
+    <div id="loader" class="fixed inset-0 bg-white z-40 flex-col items-center justify-center transition-opacity duration-500 hidden">
         <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -102,6 +112,8 @@
     </main>
 
     <script>
+        const startOverlay = document.getElementById('start-overlay');
+        const startBtn = document.getElementById('start-btn');
         const video = document.getElementById('video');
         const loader = document.getElementById('loader');
         const loaderText = document.getElementById('loader-text');
@@ -120,6 +132,23 @@
         let processing = false;
         let recentScans = [];
         let faceMatcher = null;
+        
+        startBtn.addEventListener('click', () => {
+            startOverlay.classList.add('opacity-0');
+            loader.classList.remove('hidden');
+            loader.style.display = 'flex';
+            
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('');
+                speechSynthesis.speak(utterance);
+            }
+
+            setTimeout(() => {
+                startOverlay.style.display = 'none';
+                initializeApp();
+            }, 500);
+        });
+
 
         function speak(text) {
             if ('speechSynthesis' in window) {
@@ -147,21 +176,14 @@
                     faceapi.nets.faceRecognitionNet.loadFromUri(modelUrl)
                 ]);
 
-                updateLoader('កំពុងពិនិត្យវត្តមានថ្ងៃនេះ...');
-                await loadInitialAttendanceState();
-
-                updateLoader('កំពុងទាញបញ្ជីឈ្មោះបុគ្គលិក...');
-                const labeledFaceDescriptors = await getLabeledFaceDescriptors();
-                if (labeledFaceDescriptors.length > 0) {
-                    faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
-                } else {
-                    updateLoader('មិនអាចទាញទិន្នន័យបុគ្គលិកបានទេ។');
-                    return;
-                }
-                
                 updateLoader('កំពុងបើកកាមេរ៉ា...');
                 await startCamera();
 
+                // --- បានកែសម្រួលនៅទីនេះ: ដំណើរការ function ទាំងពីរ song song ---
+                // Start loading sheet data in the background
+                loadSheetData();
+
+                // Hide loader and show main content immediately after camera starts
                 loader.classList.add('opacity-0');
                 mainContent.classList.remove('opacity-0');
                 setTimeout(() => loader.style.display = 'none', 500);
@@ -169,6 +191,17 @@
             } catch (error) {
                 console.error("Initialization failed:", error);
                 updateLoader('ការរៀបចំប្រព័ន្ធមានបញ្ហា។ សូមព្យាយាមម្តងទៀត។');
+            }
+        }
+        
+        async function loadSheetData(){
+            await loadInitialAttendanceState();
+            const labeledFaceDescriptors = await getLabeledFaceDescriptors();
+            if (labeledFaceDescriptors && labeledFaceDescriptors.length > 0) {
+                faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
+                console.log('Face matcher is ready.');
+            } else {
+                console.error('Could not create face matcher.');
             }
         }
 
@@ -194,20 +227,23 @@
                 schedule: [row[28], row[29], row[30], row[31], row[32], row[33], row[34]]
             })).filter(emp => emp.id && emp.name && emp.imageUrl && emp.imageUrl.startsWith('http'));
 
-            return Promise.all(
-                employees.map(async employee => {
-                    const descriptions = [];
-                    try {
-                        const imageUrl = `https://images.weserv.nl/?url=${encodeURIComponent(employee.imageUrl)}`;
-                        const img = await faceapi.fetchImage(imageUrl);
-                        const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-                        if (detections) descriptions.push(detections.descriptor);
-                    } catch (e) {
-                        console.error(`Could not process image for ${employee.name}:`, e);
+            const labeledDescriptorsPromises = employees.map(async employee => {
+                try {
+                    const imageUrl = employee.imageUrl;
+                    const img = await faceapi.fetchImage(imageUrl);
+                    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                    if (detection) {
+                        return new faceapi.LabeledFaceDescriptors(JSON.stringify(employee), [detection.descriptor]);
                     }
-                    return new faceapi.LabeledFaceDescriptors(JSON.stringify(employee), descriptions);
-                })
-            );
+                    return null;
+                } catch (e) {
+                    console.error(`Could not process image for ${employee.name}:`, e);
+                    return null;
+                }
+            });
+
+            const settledDescriptors = await Promise.all(labeledDescriptorsPromises);
+            return settledDescriptors.filter(descriptor => descriptor !== null);
         }
 
         async function startCamera() {
@@ -220,29 +256,33 @@
             cameraContainer.classList.add('scanning');
             
             const detect = async () => {
-                if (processing || !faceMatcher) {
-                    if (!processing) setTimeout(detect, 2500);
+                if (processing) {
+                    requestAnimationFrame(detect);
+                    return;
+                }
+                
+                // --- បានកែសម្រួលនៅទីនេះ: ពិនិត្យមើលថា faceMatcher រួចរាល់ហើយឬនៅ ---
+                if (!faceMatcher) {
+                    console.log('Face matcher is not ready yet, waiting...');
+                    requestAnimationFrame(detect);
                     return;
                 }
 
                 const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-                const detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+                const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
                 
-                if (detections.length > 0) {
-                    const bestMatch = detections.map(d => faceMatcher.findBestMatch(d.descriptor))
-                                                .sort((a, b) => a.distance - b.distance)[0];
-                    
+                if (detection) {
+                    const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
                     if (bestMatch && bestMatch.label !== 'unknown') {
                         cameraContainer.classList.remove('scanning');
                         handleMatchFound(JSON.parse(bestMatch.label));
                     } else {
-                        setTimeout(detect, 2500);
+                        requestAnimationFrame(detect);
                     }
                 } else {
-                    setTimeout(detect, 2500);
+                    requestAnimationFrame(detect);
                 }
             };
-            
             detect();
         }
 
@@ -388,8 +428,6 @@
             const endTime = `${String(Math.floor(targetWindow.end / 60)).padStart(2, '0')}:${String(targetWindow.end % 60).padStart(2, '0')}`;
             return { isValid: false, message: `ក្រៅម៉ោង! ${action} ពី ${startTime} ដល់ ${endTime}` };
         }
-
-        initializeApp();
     </script>
 </body>
 </html>
