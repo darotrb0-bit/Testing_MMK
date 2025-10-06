@@ -64,10 +64,15 @@
     <div id="start-overlay" class="fixed inset-0 bg-slate-100 z-50 flex flex-col items-center justify-center transition-opacity duration-500">
         <div class="text-center">
             <h1 class="text-4xl font-bold text-slate-900 font-khmer">ប្រព័ន្ធកត់ត្រាវត្តមាន</h1>
-            <p class="text-slate-500 mt-2 mb-8">ស្កេនផ្ទៃមុខដើម្បី Check-in ឬ Check-out</p>
-            <button id="start-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 font-khmer text-lg">
-                ចាប់ផ្តើមប្រព័ន្ធ
-            </button>
+            <p class="text-slate-500 mt-2 mb-8">សូមជ្រើសរើសមុខងារខាងក្រោម</p>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button id="start-scan-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 font-khmer text-lg">
+                    ស្កេនវត្តមាន
+                </button>
+                <button id="start-register-btn-main" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300 font-khmer text-lg">
+                    ចុះឈ្មោះថ្មី
+                </button>
+            </div>
         </div>
     </div>
 
@@ -144,7 +149,8 @@
     <script>
         // Main UI elements
         const startOverlay = document.getElementById('start-overlay');
-        const startBtn = document.getElementById('start-btn');
+        const startScanBtn = document.getElementById('start-scan-btn');
+        const startRegisterBtnMain = document.getElementById('start-register-btn-main');
         const video = document.getElementById('video');
         const loader = document.getElementById('loader');
         const loaderText = document.getElementById('loader-text');
@@ -180,7 +186,7 @@
         let registrationStream = null;
         let isDetectionRunning = false;
         
-        startBtn.addEventListener('click', () => {
+        function handleStart(isRegistration = false) {
             startOverlay.classList.add('opacity-0');
             loader.classList.remove('hidden');
             loader.style.display = 'flex';
@@ -190,11 +196,17 @@
                 speechSynthesis.speak(utterance);
             }
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 startOverlay.style.display = 'none';
-                initializeApp();
+                await initializeApp();
+                if (isRegistration) {
+                    startRegistrationBtn.click();
+                }
             }, 500);
-        });
+        }
+
+        startScanBtn.addEventListener('click', () => handleStart(false));
+        startRegisterBtnMain.addEventListener('click', () => handleStart(true));
 
 
         function speak(text) {
@@ -301,12 +313,12 @@
         }
 
         function startFaceDetection() {
-            if (isDetectionRunning) return; // Prevent multiple loops
+            if (isDetectionRunning) return;
             isDetectionRunning = true;
             cameraContainer.classList.add('scanning');
             
             const detect = async () => {
-                if (!isDetectionRunning) return; // Stop loop if flag is false
+                if (!isDetectionRunning) return;
 
                 if (processing || !faceMatcher) {
                     if (isDetectionRunning) requestAnimationFrame(detect);
@@ -425,7 +437,7 @@
         }
 
         startRegistrationBtn.addEventListener('click', () => {
-            stopFaceDetection(); // --- បានកែសម្រួលនៅទីនេះ: បិទការស្កេនវត្តមាន ---
+            stopFaceDetection();
             registrationOverlay.classList.remove('hidden');
             startRegistrationCamera();
         });
@@ -436,7 +448,7 @@
             registrationStatus.textContent = '';
             saveBtn.disabled = true;
             employeeSelectInput.value = '';
-            startFaceDetection(); // --- បានកែសម្រួលនៅទីនេះ: បើកការស្កេនវត្តមានឡើងវិញ ---
+            startFaceDetection();
         });
 
         captureBtn.addEventListener('click', async () => {
