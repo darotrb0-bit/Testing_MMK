@@ -178,6 +178,7 @@
         let faceMatcher = null;
         let allEmployees = [];
         let registrationStream = null;
+        let isDetectionRunning = false;
         
         startBtn.addEventListener('click', () => {
             startOverlay.classList.add('opacity-0');
@@ -270,7 +271,7 @@
                 schedule: [row[28], row[29], row[30], row[31], row[32], row[33], row[34]]
             })).filter(emp => emp.id && emp.name && emp.imageUrl);
             
-            allEmployees = employees; // Store for dropdown
+            allEmployees = employees;
             populateEmployeeDropdown();
 
             const labeledDescriptorsPromises = employees
@@ -300,11 +301,17 @@
         }
 
         function startFaceDetection() {
+            if (isDetectionRunning) return; // Prevent multiple loops
+            isDetectionRunning = true;
             cameraContainer.classList.add('scanning');
             
             const detect = async () => {
-                if (processing) { requestAnimationFrame(detect); return; }
-                if (!faceMatcher) { requestAnimationFrame(detect); return; }
+                if (!isDetectionRunning) return; // Stop loop if flag is false
+
+                if (processing || !faceMatcher) {
+                    if (isDetectionRunning) requestAnimationFrame(detect);
+                    return;
+                }
                 
                 const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
                 const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
@@ -315,13 +322,18 @@
                         cameraContainer.classList.remove('scanning');
                         handleMatchFound(JSON.parse(bestMatch.label));
                     } else {
-                        requestAnimationFrame(detect);
+                        if (isDetectionRunning) requestAnimationFrame(detect);
                     }
                 } else {
-                    requestAnimationFrame(detect);
+                    if (isDetectionRunning) requestAnimationFrame(detect);
                 }
             };
             detect();
+        }
+        
+        function stopFaceDetection() {
+            isDetectionRunning = false;
+            cameraContainer.classList.remove('scanning');
         }
 
         async function handleMatchFound(employee) {
@@ -413,6 +425,7 @@
         }
 
         startRegistrationBtn.addEventListener('click', () => {
+            stopFaceDetection(); // --- បានកែសម្រួលនៅទីនេះ: បិទការស្កេនវត្តមាន ---
             registrationOverlay.classList.remove('hidden');
             startRegistrationCamera();
         });
@@ -423,6 +436,7 @@
             registrationStatus.textContent = '';
             saveBtn.disabled = true;
             employeeSelectInput.value = '';
+            startFaceDetection(); // --- បានកែសម្រួលនៅទីនេះ: បើកការស្កេនវត្តមានឡើងវិញ ---
         });
 
         captureBtn.addEventListener('click', async () => {
@@ -479,8 +493,8 @@
                 registrationStatus.classList.add('text-green-600');
 
                 setTimeout(() => {
-                    cancelBtn.click(); // Close modal on success
-                    location.reload(); // Reload to fetch new data
+                    cancelBtn.click();
+                    location.reload();
                 }, 2000);
 
             } catch (error) {
