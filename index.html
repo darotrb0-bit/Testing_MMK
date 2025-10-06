@@ -96,8 +96,9 @@
                 <datalist id="employee-list"></datalist>
             </div>
 
-            <div class="w-64 h-64 mx-auto rounded-full overflow-hidden border-4 border-slate-200 mb-4">
-                 <video id="video-register" autoplay muted playsinline></video>
+            <div class="w-64 h-64 mx-auto rounded-full overflow-hidden border-4 border-slate-200 mb-4 relative">
+                 <video id="video-register" autoplay muted playsinline class="w-full h-full object-cover"></video>
+                 <img id="captured-image-preview" class="w-full h-full object-cover hidden" style="transform: scaleX(-1);">
             </div>
             <canvas id="canvas-capture" class="hidden"></canvas>
 
@@ -105,7 +106,8 @@
 
             <div class="flex items-center justify-center gap-4">
                 <button id="capture-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition font-khmer disabled:bg-slate-300" disabled>ថតរូប</button>
-                <button id="save-btn" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition font-khmer disabled:bg-slate-300" disabled>រក្សាទុក</button>
+                <button id="retake-btn" class="bg-amber-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-amber-600 transition font-khmer hidden">ថតម្ដងទៀត</button>
+                <button id="save-btn" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700 transition font-khmer disabled:bg-slate-300 hidden" disabled>រក្សាទុក</button>
                 <button id="cancel-btn" class="bg-slate-200 text-slate-800 font-bold py-2 px-6 rounded-lg hover:bg-slate-300 transition font-khmer">បោះបង់</button>
             </div>
         </div>
@@ -164,11 +166,13 @@
         const registrationOverlay = document.getElementById('registration-overlay');
         const startRegistrationBtn = document.getElementById('start-registration-btn');
         const videoRegister = document.getElementById('video-register');
+        const capturedImagePreview = document.getElementById('captured-image-preview');
         const employeeSelectInput = document.getElementById('employee-select-input');
         const employeeList = document.getElementById('employee-list');
         const registrationStatus = document.getElementById('registration-status');
         const captureBtn = document.getElementById('capture-btn');
         const saveBtn = document.getElementById('save-btn');
+        const retakeBtn = document.getElementById('retake-btn');
         const cancelBtn = document.getElementById('cancel-btn');
         const canvasCapture = document.getElementById('canvas-capture');
 
@@ -421,6 +425,19 @@
         }
 
         // --- Registration Logic ---
+        function resetRegistrationModal() {
+            videoRegister.classList.remove('hidden');
+            capturedImagePreview.classList.add('hidden');
+            captureBtn.classList.remove('hidden');
+            retakeBtn.classList.add('hidden');
+            saveBtn.classList.add('hidden');
+            saveBtn.disabled = true;
+            captureBtn.disabled = true;
+            captureBtn.classList.add('disabled:bg-slate-300');
+            registrationStatus.textContent = '';
+            employeeSelectInput.value = '';
+        }
+
         function populateEmployeeDropdown() {
             const optionsHtml = allEmployees.map(emp => `<option value="${emp.id} - ${emp.name}"></option>`).join('');
             employeeList.innerHTML = optionsHtml;
@@ -453,11 +470,7 @@
         cancelBtn.addEventListener('click', () => {
             registrationOverlay.classList.add('hidden');
             stopRegistrationCamera();
-            registrationStatus.textContent = '';
-            saveBtn.disabled = true;
-            captureBtn.disabled = true; // --- បានកែសម្រួល: បិទប៊ូតុងថតរូបវិញ ---
-            captureBtn.classList.add('disabled:bg-slate-300');
-            employeeSelectInput.value = '';
+            resetRegistrationModal();
             startFaceDetection();
         });
 
@@ -477,15 +490,6 @@
         });
 
         captureBtn.addEventListener('click', async () => {
-            const selectedValue = employeeSelectInput.value;
-            const isValidEmployee = allEmployees.some(emp => `${emp.id} - ${emp.name}` === selectedValue);
-
-            if (!isValidEmployee) {
-                registrationStatus.textContent = 'សូមជ្រើសរើសឈ្មោះបុគ្គលិកឱ្យបានត្រឹមត្រូវ។';
-                registrationStatus.classList.add('text-red-600');
-                return;
-            }
-
             registrationStatus.textContent = 'កំពុងវិភាគគុណភាពរូប...';
             registrationStatus.classList.remove('text-red-600', 'text-green-600');
             
@@ -503,7 +507,25 @@
             canvasCapture.width = videoRegister.videoWidth;
             canvasCapture.height = videoRegister.videoHeight;
             context.drawImage(videoRegister, 0, 0, canvasCapture.width, canvasCapture.height);
+
+            capturedImagePreview.src = canvasCapture.toDataURL('image/jpeg');
+            videoRegister.classList.add('hidden');
+            capturedImagePreview.classList.remove('hidden');
+            
+            captureBtn.classList.add('hidden');
+            retakeBtn.classList.remove('hidden');
+            saveBtn.classList.remove('hidden');
             saveBtn.disabled = false;
+        });
+
+        retakeBtn.addEventListener('click', () => {
+            videoRegister.classList.remove('hidden');
+            capturedImagePreview.classList.add('hidden');
+            captureBtn.classList.remove('hidden');
+            retakeBtn.classList.add('hidden');
+            saveBtn.classList.add('hidden');
+            saveBtn.disabled = true;
+            registrationStatus.textContent = '';
         });
 
         saveBtn.addEventListener('click', async () => {
@@ -521,6 +543,7 @@
             saveBtn.disabled = true;
             captureBtn.disabled = true;
             cancelBtn.disabled = true;
+            retakeBtn.disabled = true;
 
             try {
                 const response = await fetch(APPS_SCRIPT_URL, {
@@ -549,6 +572,7 @@
                 saveBtn.disabled = false;
                 captureBtn.disabled = false;
                 cancelBtn.disabled = false;
+                retakeBtn.disabled = false;
             }
         });
 
