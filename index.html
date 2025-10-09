@@ -98,7 +98,7 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec';
+        const SCRIPT_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
 
         // DOM Elements
@@ -159,7 +159,9 @@
                 
             } catch (error) {
                 console.error("Initialization failed:", error);
-                initialLoading.innerHTML = `<p class="text-red-500">Initialization Error: ${error.message}</p>`;
+                initialLoading.innerHTML = `<p class="text-red-500 font-bold">ការចាប់ផ្តើមล้มเหลว</p>
+                                          <p class="text-red-600 mt-2">មិនអាចดาวน์โหลดម៉ូឌែល AI បានទេ។ សូមตรวจสอบការเชื่อมต่ออินเทอร์เน็ตរបស់អ្នក ហើយลองโหลดหน้าเว็บใหม่อีกครั้ง។</p>
+                                          <p class="text-gray-500 mt-1 text-sm">Error: ${error.message}</p>`;
             }
         }
 
