@@ -1,494 +1,433 @@
 <!DOCTYPE html>
 <html lang="km">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធថតរូបបុគ្គលិក</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Import face-api.js -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;700&display=swap" rel="stylesheet">
     <style>
-      body {
-        font-family: "Kantumruy Pro", sans-serif;
-      }
-      #overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-      }
-      .center-absolute {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        border: 4px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top: 4px solid #fff;
-        width: 40px;
-        height: 40px;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
+        body {
+            font-family: 'Kantumruy Pro', sans-serif;
         }
-        100% {
-          transform: rotate(360deg);
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
-      }
+        .center-absolute {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
-  </head>
+</head>
 
-  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div
-      class="w-full max-w-2xl mx-auto p-4 md:p-6 bg-white rounded-2xl shadow-lg"
-    >
-      <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">
-        ប្រព័ន្ធថតរូបបុគ្គលិក
-      </h1>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
 
-      <!-- Loading State -->
-      <div id="initial-loading" class="text-center p-8">
-        <div class="spinner mx-auto border-gray-400 border-t-blue-500"></div>
-        <p class="mt-4 text-gray-600">
-          កំពុងទាញយកទិន្នន័យ និងត្រៀមម៉ូឌែល AI...
-        </p>
-      </div>
+    <div class="w-full max-w-2xl mx-auto p-4 md:p-6 bg-white rounded-2xl shadow-lg">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">ប្រព័ន្ធថតរូបបុគ្គលិក</h1>
 
-      <!-- Main Content -->
-      <div id="main-content" class="hidden">
-        <!-- Employee Selection -->
-        <div class="mb-4">
-          <label
-            for="employee-search"
-            class="block text-sm font-medium text-gray-700 mb-1"
-            >ស្វែងរក (ឈ្មោះ ឬ អត្តលេខ)</label
-          >
-          <input
-            type="text"
-            id="employee-search"
-            list="employee-list"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-            placeholder="វាយបញ្ចូលដើម្បីស្វែងរក..."
-          />
-          <datalist id="employee-list"></datalist>
+        <!-- Loading State -->
+        <div id="initial-loading" class="text-center p-8">
+            <div class="spinner mx-auto border-gray-400 border-t-blue-500"></div>
+            <p class="mt-4 text-gray-600">កំពុងទាញយកទិន្នន័យ និងត្រៀមម៉ូឌែល AI...</p>
         </div>
 
-        <!-- Employee Info -->
-        <div
-          id="employee-info"
-          class="mb-4 p-3 bg-blue-50 rounded-lg text-center hidden"
-        >
-          <p class="text-gray-800">
-            <span class="font-semibold">ថ្នាក់រៀន៖</span>
-            <span id="employee-class" class="text-blue-700"></span>
-          </p>
-        </div>
+        <!-- Main Content -->
+        <div id="main-content" class="hidden">
+            <!-- Employee Selection -->
+            <div class="mb-4">
+                <label for="employee-search" class="block text-sm font-medium text-gray-700 mb-1">ស្វែងរក (ឈ្មោះ ឬ អត្តលេខ)</label>
+                <input type="text" id="employee-search" list="employee-list" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="វាយបញ្ចូលដើម្បីស្វែងរក...">
+                <datalist id="employee-list"></datalist>
+            </div>
 
-        <!-- Camera and Validation -->
-        <div
-          id="camera-container"
-          class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden shadow-inner hidden"
-        >
-          <video
-            id="video"
-            playsinline
-            autoplay
-            muted
-            class="w-full h-full object-cover"
-          ></video>
-          <canvas id="overlay" class=""></canvas>
-          <!-- Camera Switch Button -->
-          <button
-            id="switch-camera"
-            class="absolute top-3 right-3 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 transition"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
-              <path d="M14 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1" />
-              <path d="m17 12-3-3 3-3" />
-              <path d="m7 12 3 3-3 3" />
-            </svg>
-          </button>
-          <div
-            id="validation-message"
-            class="center-absolute bg-black bg-opacity-60 text-white text-center p-3 rounded-lg text-sm md:text-base hidden"
-          >
-            <p id="message-text"></p>
-          </div>
-          <!-- Processing Loader -->
-          <div
-            id="processing-loader"
-            class="center-absolute bg-black bg-opacity-70 w-full h-full flex-col items-center justify-center hidden"
-          >
-            <div class="spinner"></div>
-            <p id="processing-text" class="text-white mt-3"></p>
-          </div>
-        </div>
+            <!-- Employee Info -->
+            <div id="employee-info" class="mb-4 p-3 bg-blue-50 rounded-lg text-center hidden">
+                <p class="text-gray-800"><span class="font-semibold">ថ្នាក់រៀន៖</span> <span id="employee-class" class="text-blue-700"></span></p>
+            </div>
 
-        <!-- Action Buttons -->
-        <div
-          id="action-buttons"
-          class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 hidden"
-        >
-          <button
-            id="upload-btn"
-            class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out disabled:bg-gray-400"
-          >
-            ថតរូប & Upload
-          </button>
-          <button
-            id="retake-btn"
-            class="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition duration-300 ease-in-out"
-          >
-            ថតឡើងវិញ
-          </button>
+            <!-- Camera and Validation -->
+            <div id="camera-container" class="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden shadow-inner hidden">
+                <video id="video" playsinline autoplay muted class="w-full h-full object-cover"></video>
+                <canvas id="overlay" class=""></canvas>
+                 <!-- Camera Switch Button -->
+                 <button id="switch-camera" class="absolute top-3 right-3 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-75 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/><path d="M14 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><path d="m17 12-3-3 3-3"/><path d="m7 12 3 3-3 3"/></svg>
+                </button>
+                <div id="validation-message" class="center-absolute bg-black bg-opacity-60 text-white text-center p-3 rounded-lg text-sm md:text-base hidden">
+                    <p id="message-text"></p>
+                </div>
+                <!-- Processing Loader -->
+                <div id="processing-loader" class="center-absolute bg-black bg-opacity-70 w-full h-full flex-col items-center justify-center hidden">
+                     <div class="spinner"></div>
+                     <p id="processing-text" class="text-white mt-3"></p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="action-buttons" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 hidden">
+                <button id="upload-btn" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out disabled:bg-gray-400">
+                    ថតរូប & Upload
+                </button>
+                <button id="retake-btn" class="w-full bg-gray-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-700 transition duration-300 ease-in-out">
+                    ថតឡើងវិញ
+                </button>
+            </div>
+
         </div>
-      </div>
     </div>
 
     <script>
-      const SCRIPT_URL =
-        "https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec";
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec';
 
-      // DOM Elements
-      const video = document.getElementById("video");
-      const overlay = document.getElementById("overlay");
-      const ctx = overlay.getContext("2d");
-      const employeeSearch = document.getElementById("employee-search");
-      const employeeList = document.getElementById("employee-list");
-      const employeeInfo = document.getElementById("employee-info");
-      const employeeClass = document.getElementById("employee-class");
-      const cameraContainer = document.getElementById("camera-container");
-      const validationMessage = document.getElementById("validation-message");
-      const messageText = document.getElementById("message-text");
-      const actionButtons = document.getElementById("action-buttons");
-      const uploadBtn = document.getElementById("upload-btn");
-      const retakeBtn = document.getElementById("retake-btn");
-      const switchCameraBtn = document.getElementById("switch-camera");
-      const initialLoading = document.getElementById("initial-loading");
-      const mainContent = document.getElementById("main-content");
-      const processingLoader = document.getElementById("processing-loader");
-      const processingText = document.getElementById("processing-text");
+        // DOM Elements
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const ctx = overlay.getContext('2d');
+        const employeeSearch = document.getElementById('employee-search');
+        const employeeList = document.getElementById('employee-list');
+        const employeeInfo = document.getElementById('employee-info');
+        const employeeClass = document.getElementById('employee-class');
+        const cameraContainer = document.getElementById('camera-container');
+        const validationMessage = document.getElementById('validation-message');
+        const messageText = document.getElementById('message-text');
+        const actionButtons = document.getElementById('action-buttons');
+        const uploadBtn = document.getElementById('upload-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const switchCameraBtn = document.getElementById('switch-camera');
+        const initialLoading = document.getElementById('initial-loading');
+        const mainContent = document.getElementById('main-content');
+        const processingLoader = document.getElementById('processing-loader');
+        const processingText = document.getElementById('processing-text');
+        
+        let employees = [];
+        let selectedEmployee = null;
+        let detectionInterval = null;
+        let stream;
+        let currentFacingMode = 'user'; // 'user' for front, 'environment' for back
 
-      let employees = [];
-      let selectedEmployee = null;
-      let detectionInterval = null;
-      let stream;
-      let currentFacingMode = "user"; // 'user' for front, 'environment' for back
+        // AI Validation thresholds
+        const FACE_CONFIDENCE_THRESHOLD = 0.8;
+        const FACE_SIZE_THRESHOLD = 0.25; // % of video width
+        const EYE_ASPECT_RATIO_THRESHOLD = 0.2;
+        const YAW_THRESHOLD = 0.25; // Head rotation left/right
+        const ROLL_THRESHOLD = 0.1; // Head tilt side to side
 
-      // AI Validation thresholds
-      const FACE_CONFIDENCE_THRESHOLD = 0.8;
-      const FACE_SIZE_THRESHOLD = 0.25; // % of video width
-      const EYE_ASPECT_RATIO_THRESHOLD = 0.2;
-
-      // --- Initialization ---
-      async function initialize() {
-        if (SCRIPT_URL === "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
-          document.body.innerHTML =
-            '<div class="text-red-600 text-center font-bold p-10">ERROR: សូមបញ្ចូល URL របស់ Google Apps Script ក្នុងไฟล์ index.html ជាមុនសិន។</div>';
-          return;
-        }
-        try {
-          // Load face detection models
-          await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
-            faceapi.nets.faceLandmark68TinyNet.loadFromUri("./models"),
-          ]);
-
-          // Fetch employee data
-          const response = await fetch(SCRIPT_URL);
-          employees = await response.json();
-
-          if (employees.error) throw new Error(employees.error);
-
-          populateDatalist();
-          initialLoading.classList.add("hidden");
-          mainContent.classList.remove("hidden");
-        } catch (error) {
-          console.error("Initialization failed:", error);
-          initialLoading.innerHTML = `<p class="text-red-500">Initialization Error: ${error.message}</p>`;
-        }
-      }
-
-      function populateDatalist() {
-        employees.forEach((emp) => {
-          const optionName = document.createElement("option");
-          optionName.value = `${emp.name} (${emp.id})`;
-
-          const optionId = document.createElement("option");
-          optionId.value = emp.id;
-
-          employeeList.appendChild(optionName);
-          employeeList.appendChild(optionId);
-        });
-      }
-
-      // --- Camera Handling ---
-      async function startCamera(facingMode = "user") {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
-        try {
-          const constraints = {
-            video: {
-              facingMode: { exact: facingMode },
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-            },
-          };
-          stream = await navigator.mediaDevices.getUserMedia(constraints);
-          video.srcObject = stream;
-        } catch (err) {
-          console.error("Error accessing camera:", err);
-          messageText.textContent = `Error: មិនអាចបើកកាមេរ៉ា (${facingMode}) បានទេ។`;
-          validationMessage.classList.remove("hidden");
-          // Try the other camera if one fails
-          if (facingMode === "user") startCamera("environment");
-        }
-      }
-
-      switchCameraBtn.addEventListener("click", () => {
-        currentFacingMode =
-          currentFacingMode === "user" ? "environment" : "user";
-        startCamera(currentFacingMode);
-      });
-
-      // --- Employee Selection ---
-      employeeSearch.addEventListener("input", () => {
-        const value = employeeSearch.value;
-        const found = employees.find(
-          (emp) => emp.id === value || `${emp.name} (${emp.id})` === value
-        );
-
-        if (found) {
-          selectedEmployee = found;
-          employeeClass.textContent = found.class || "N/A";
-          employeeInfo.classList.remove("hidden");
-          cameraContainer.classList.remove("hidden");
-          if (!video.srcObject) {
-            startCamera(currentFacingMode);
-          }
-          resetDetection();
-        } else {
-          selectedEmployee = null;
-          employeeInfo.classList.add("hidden");
-        }
-      });
-
-      // --- Face Detection and Validation ---
-      video.addEventListener("play", () => {
-        // Resize overlay canvas to match video dimensions
-        const displaySize = {
-          width: video.clientWidth,
-          height: video.clientHeight,
-        };
-        faceapi.matchDimensions(overlay, displaySize);
-
-        // Start detection loop if an employee is selected
-        if (selectedEmployee && !detectionInterval) {
-          detectionInterval = setInterval(detectFace, 200);
-        }
-      });
-
-      function resetDetection() {
-        clearInterval(detectionInterval);
-        detectionInterval = null;
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        validationMessage.classList.add("hidden");
-        actionButtons.classList.add("hidden");
-        if (selectedEmployee) {
-          detectionInterval = setInterval(detectFace, 200);
-        }
-      }
-
-      function getEyeAspectRatio(eyeLandmarks) {
-        const p1 = eyeLandmarks[0];
-        const p2 = eyeLandmarks[1];
-        const p3 = eyeLandmarks[2];
-        const p4 = eyeLandmarks[3];
-        const p5 = eyeLandmarks[4];
-        const p6 = eyeLandmarks[5];
-
-        const verticalDist =
-          faceapi.euclideanDistance([p2, p6]) +
-          faceapi.euclideanDistance([p3, p5]);
-        const horizontalDist = faceapi.euclideanDistance([p1, p4]);
-
-        return verticalDist / (2.0 * horizontalDist);
-      }
-
-      async function detectFace() {
-        const displaySize = {
-          width: video.clientWidth,
-          height: video.clientHeight,
-        };
-        if (
-          overlay.width !== displaySize.width ||
-          overlay.height !== displaySize.height
-        ) {
-          faceapi.matchDimensions(overlay, displaySize);
-        }
-
-        const detection = await faceapi
-          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks(true);
-
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-        if (detection) {
-          const resizedDetection = faceapi.resizeResults(
-            detection,
-            displaySize
-          );
-          const box = resizedDetection.detection.box;
-          let isValid = true;
-          let message = "";
-
-          // 1. Check Face Confidence
-          if (detection.detection.score < FACE_CONFIDENCE_THRESHOLD) {
-            isValid = false;
-            message = "ពន្លឺមិនគ្រប់គ្រាន់ ឬផ្ទៃមុខមិនច្បាស់";
-          }
-          // 2. Check Face Size
-          else if (box.width / displaySize.width < FACE_SIZE_THRESHOLD) {
-            isValid = false;
-            message = "សូមចូលមកជិតកាមេរ៉ាបន្តិច";
-          }
-          // 3. Check Eyes Open
-          else {
-            const landmarks = resizedDetection.landmarks;
-            const leftEye = landmarks.getLeftEye();
-            const rightEye = landmarks.getRightEye();
-            const leftEAR = getEyeAspectRatio(leftEye);
-            const rightEAR = getEyeAspectRatio(rightEye);
-
-            if (
-              leftEAR < EYE_ASPECT_RATIO_THRESHOLD ||
-              rightEAR < EYE_ASPECT_RATIO_THRESHOLD
-            ) {
-              isValid = false;
-              message = "សូមបើកភ្នែកទាំងពីរឲ្យបានធំៗ";
+        // --- Initialization ---
+        async function initialize() {
+            if (SCRIPT_URL === 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+                document.body.innerHTML = '<div class="text-red-600 text-center font-bold p-10">ERROR: សូមបញ្ចូល URL របស់ Google Apps Script ក្នុងไฟล์ index.html ជាមុនសិន។</div>';
+                return;
             }
-          }
+            try {
+                // Load face detection models
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('./models'),
+                    faceapi.nets.faceLandmark68TinyNet.loadFromUri('./models')
+                ]);
 
-          // Draw bounding box based on validity
-          const boxColor = isValid
-            ? "rgba(0, 255, 0, 0.7)"
-            : "rgba(255, 0, 0, 0.7)";
-          ctx.strokeStyle = boxColor;
-          ctx.lineWidth = 4;
-          ctx.strokeRect(box.x, box.y, box.width, box.height);
+                // Fetch employee data
+                const response = await fetch(SCRIPT_URL);
+                employees = await response.json();
+                
+                if (employees.error) throw new Error(employees.error);
 
-          if (isValid) {
-            message = "ផ្ទៃមុខត្រឹមត្រូវ!";
-            validationMessage.classList.remove("bg-black", "bg-opacity-60");
-            validationMessage.classList.add("bg-green-600", "bg-opacity-80");
+                populateDatalist();
+                initialLoading.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                initialLoading.innerHTML = `<p class="text-red-500">Initialization Error: ${error.message}</p>`;
+            }
+        }
+
+        function populateDatalist() {
+            employees.forEach(emp => {
+                const optionName = document.createElement('option');
+                optionName.value = `${emp.name} (${emp.id})`;
+                
+                const optionId = document.createElement('option');
+                optionId.value = emp.id;
+
+                employeeList.appendChild(optionName);
+                employeeList.appendChild(optionId);
+            });
+        }
+        
+        // --- Camera Handling ---
+        async function startCamera(facingMode = 'user') {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            try {
+                const constraints = {
+                    video: { 
+                        facingMode: { exact: facingMode },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                messageText.textContent = `Error: មិនអាចបើកកាមេរ៉ា (${facingMode}) បានទេ។`;
+                validationMessage.classList.remove('hidden');
+                // Try the other camera if one fails
+                if(facingMode === 'user') startCamera('environment');
+            }
+        }
+
+        switchCameraBtn.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+            startCamera(currentFacingMode);
+        });
+        
+        // --- Employee Selection ---
+        employeeSearch.addEventListener('input', () => {
+            const value = employeeSearch.value;
+            const found = employees.find(emp => emp.id === value || `${emp.name} (${emp.id})` === value);
+            
+            if (found) {
+                selectedEmployee = found;
+                employeeClass.textContent = found.class || 'N/A';
+                employeeInfo.classList.remove('hidden');
+                cameraContainer.classList.remove('hidden');
+                if (!video.srcObject) {
+                    startCamera(currentFacingMode);
+                }
+                resetDetection();
+            } else {
+                selectedEmployee = null;
+                employeeInfo.classList.add('hidden');
+            }
+        });
+
+        // --- Face Detection and Validation ---
+        video.addEventListener('play', () => {
+            // Resize overlay canvas to match video dimensions
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(overlay, displaySize);
+            
+            // Start detection loop if an employee is selected
+            if (selectedEmployee && !detectionInterval) {
+                 detectionInterval = setInterval(detectFace, 200);
+            }
+        });
+
+        function resetDetection() {
             clearInterval(detectionInterval);
             detectionInterval = null;
-            actionButtons.classList.remove("hidden");
-          } else {
-            validationMessage.classList.add("bg-black", "bg-opacity-60");
-            validationMessage.classList.remove("bg-green-600", "bg-opacity-80");
-          }
-
-          messageText.textContent = message;
-          validationMessage.classList.remove("hidden");
-        } else {
-          messageText.textContent = "រកមិនឃើញផ្ទៃមុខ សូមដាក់មុខឲ្យចំកាមេរ៉ា";
-          validationMessage.classList.remove("hidden");
-          validationMessage.classList.add("bg-black", "bg-opacity-60");
-          validationMessage.classList.remove("bg-green-600", "bg-opacity-80");
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+            validationMessage.classList.add('hidden');
+            actionButtons.classList.add('hidden');
+            if (selectedEmployee) {
+                 detectionInterval = setInterval(detectFace, 200);
+            }
         }
-      }
+        
+        function getEyeAspectRatio(eyeLandmarks) {
+            const p1 = eyeLandmarks[0];
+            const p2 = eyeLandmarks[1];
+            const p3 = eyeLandmarks[2];
+            const p4 = eyeLandmarks[3];
+            const p5 = eyeLandmarks[4];
+            const p6 = eyeLandmarks[5];
 
-      // --- Image Capture and Upload ---
-      retakeBtn.addEventListener("click", () => {
-        resetDetection();
-      });
+            const verticalDist = faceapi.euclideanDistance([p2, p6]) + faceapi.euclideanDistance([p3, p5]);
+            const horizontalDist = faceapi.euclideanDistance([p1, p4]);
 
-      uploadBtn.addEventListener("click", async () => {
-        if (!selectedEmployee) return;
-
-        processingText.textContent = "កំពុងថត និងរៀបចំរូបភាព...";
-        processingLoader.classList.remove("hidden");
-        actionButtons.classList.add("hidden");
-        uploadBtn.disabled = true;
-
-        const captureCanvas = document.createElement("canvas");
-        captureCanvas.width = video.videoWidth;
-        captureCanvas.height = video.videoHeight;
-        const captureCtx = captureCanvas.getContext("2d");
-        captureCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-
-        const imageData = captureCanvas.toDataURL("image/jpeg", 0.9);
-
-        processingText.textContent = "កំពុង Upload ទៅកាន់ Google Drive...";
-
-        try {
-          const response = await fetch(SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify({
-              employeeId: selectedEmployee.id,
-              imageData: imageData,
-            }),
-            mode: "cors",
-          });
-
-          const result = await response.json();
-
-          if (result.status === "success") {
-            processingText.textContent = `Upload ជោគជ័យ!`;
-            messageText.textContent = "Upload បានជោគជ័យ!";
-            validationMessage.classList.remove("hidden");
-            validationMessage.classList.remove("bg-black", "bg-opacity-60");
-            validationMessage.classList.add("bg-green-600", "bg-opacity-80");
-            setTimeout(() => {
-              // Reset for next person
-              employeeSearch.value = "";
-              selectedEmployee = null;
-              cameraContainer.classList.add("hidden");
-              employeeInfo.classList.add("hidden");
-              validationMessage.classList.add("hidden");
-              processingLoader.classList.add("hidden");
-              uploadBtn.disabled = false;
-            }, 3000);
-          } else {
-            throw new Error(result.message || "Unknown error from server");
-          }
-        } catch (error) {
-          console.error("Upload failed:", error);
-          processingLoader.classList.add("hidden");
-          messageText.textContent = `Upload បរាជ័យ: ${error.message}`;
-          validationMessage.classList.remove("hidden");
-          validationMessage.classList.add("bg-black", "bg-opacity-60");
-          validationMessage.classList.remove("bg-green-600", "bg-opacity-80");
-          uploadBtn.disabled = false;
-          resetDetection(); // Allow retake
+            return verticalDist / (2.0 * horizontalDist);
         }
-      });
 
-      // --- Start the application ---
-      window.onload = initialize;
+        async function detectFace() {
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            if (overlay.width !== displaySize.width || overlay.height !== displaySize.height) {
+                 faceapi.matchDimensions(overlay, displaySize);
+            }
+
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks(true);
+
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            if (detection) {
+                const resizedDetection = faceapi.resizeResults(detection, displaySize);
+                const box = resizedDetection.detection.box;
+                let isValid = true;
+                let message = '';
+
+                // --- Start Validation ---
+                // 1. Check Face Confidence (Lighting)
+                if (detection.detection.score < FACE_CONFIDENCE_THRESHOLD) {
+                    isValid = false;
+                    message = 'ពន្លឺមិនគ្រប់គ្រាន់ ឬផ្ទៃមុខមិនច្បាស់';
+                }
+                // 2. Check Face Size (Distance)
+                else if (box.width / displaySize.width < FACE_SIZE_THRESHOLD) {
+                    isValid = false;
+                    message = 'សូមចូលមកជិតកាមេរ៉ាបន្តិច';
+                }
+                // 3. Check Pose and Eyes
+                else {
+                    const landmarks = resizedDetection.landmarks;
+                    
+                    // 3a. Check Eyes Open
+                    const leftEye = landmarks.getLeftEye();
+                    const rightEye = landmarks.getRightEye();
+                    const leftEAR = getEyeAspectRatio(leftEye);
+                    const rightEAR = getEyeAspectRatio(rightEye);
+
+                    if (leftEAR < EYE_ASPECT_RATIO_THRESHOLD || rightEAR < EYE_ASPECT_RATIO_THRESHOLD) {
+                        isValid = false;
+                        message = 'សូមបើកភ្នែកទាំងពីរឲ្យបានធំៗ';
+                    } else {
+                        // 3b. Check Pose (Head Angle) - only if eyes are open
+                        const leftEyeCorner = landmarks.getLeftEye()[0];
+                        const rightEyeCorner = landmarks.getRightEye()[3];
+                        const noseTip = landmarks.getNose()[3];
+                        
+                        const eyeDist = faceapi.euclideanDistance([leftEyeCorner, rightEyeCorner]);
+                        
+                        // Check for head rotation (yaw)
+                        const eyeCenterX = (leftEyeCorner.x + rightEyeCorner.x) / 2;
+                        const yawRatio = Math.abs(noseTip.x - eyeCenterX) / eyeDist;
+                        
+                        // Check for head tilt (roll)
+                        const rollRatio = Math.abs(leftEyeCorner.y - rightEyeCorner.y) / eyeDist;
+
+                        if (yawRatio > YAW_THRESHOLD) {
+                             isValid = false;
+                             message = 'សូមមេត្តាមើលត្រង់ទៅកាន់កាមេរ៉ា';
+                        } else if (rollRatio > ROLL_THRESHOLD) {
+                             isValid = false;
+                             message = 'សូមដាក់ក្បាលឲ្យត្រង់ កុំផ្អៀង';
+                        }
+                    }
+                }
+                // --- End Validation ---
+
+                // Draw bounding box based on validity
+                const boxColor = isValid ? 'rgba(0, 255, 0, 0.7)' : 'rgba(255, 0, 0, 0.7)';
+                ctx.strokeStyle = boxColor;
+                ctx.lineWidth = 4;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                if (isValid) {
+                    message = 'ផ្ទៃមុខត្រឹមត្រូវ!';
+                    validationMessage.classList.remove('bg-black', 'bg-opacity-60');
+                    validationMessage.classList.add('bg-green-600', 'bg-opacity-80');
+                    clearInterval(detectionInterval);
+                    detectionInterval = null;
+                    actionButtons.classList.remove('hidden');
+                } else {
+                    validationMessage.classList.add('bg-black', 'bg-opacity-60');
+                    validationMessage.classList.remove('bg-green-600', 'bg-opacity-80');
+                }
+                
+                messageText.textContent = message;
+                validationMessage.classList.remove('hidden');
+
+            } else {
+                messageText.textContent = 'រកមិនឃើញផ្ទៃមុខ សូមដាក់មុខឲ្យចំកាមេរ៉ា';
+                validationMessage.classList.remove('hidden');
+                validationMessage.classList.add('bg-black', 'bg-opacity-60');
+                validationMessage.classList.remove('bg-green-600', 'bg-opacity-80');
+            }
+        }
+        
+        // --- Image Capture and Upload ---
+        retakeBtn.addEventListener('click', () => {
+            resetDetection();
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedEmployee) return;
+
+            processingText.textContent = "កំពុងថត និងរៀបចំរូបភាព...";
+            processingLoader.classList.remove('hidden');
+            actionButtons.classList.add('hidden');
+            uploadBtn.disabled = true;
+
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = video.videoWidth;
+            captureCanvas.height = video.videoHeight;
+            const captureCtx = captureCanvas.getContext('2d');
+            captureCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            
+            const imageData = captureCanvas.toDataURL('image/jpeg', 0.9);
+
+            processingText.textContent = "កំពុង Upload ទៅកាន់ Google Drive...";
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        employeeId: selectedEmployee.id,
+                        imageData: imageData
+                    }),
+                    mode: 'cors'
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    processingText.textContent = `Upload ជោគជ័យ!`;
+                    messageText.textContent = 'Upload បានជោគជ័យ!';
+                    validationMessage.classList.remove('hidden');
+                    validationMessage.classList.remove('bg-black', 'bg-opacity-60');
+                    validationMessage.classList.add('bg-green-600', 'bg-opacity-80');
+                    setTimeout(() => {
+                        // Reset for next person
+                        employeeSearch.value = '';
+                        selectedEmployee = null;
+                        cameraContainer.classList.add('hidden');
+                        employeeInfo.classList.add('hidden');
+                        validationMessage.classList.add('hidden');
+                        processingLoader.classList.add('hidden');
+                        uploadBtn.disabled = false;
+                    }, 3000);
+                } else {
+                    throw new Error(result.message || 'Unknown error from server');
+                }
+
+            } catch (error) {
+                console.error("Upload failed:", error);
+                processingLoader.classList.add('hidden');
+                messageText.textContent = `Upload បរាជ័យ: ${error.message}`;
+                validationMessage.classList.remove('hidden');
+                validationMessage.classList.add('bg-black', 'bg-opacity-60');
+                validationMessage.classList.remove('bg-green-600', 'bg-opacity-80');
+                uploadBtn.disabled = false;
+                resetDetection(); // Allow retake
+            }
+        });
+        
+        // --- Start the application ---
+        window.onload = initialize;
     </script>
-  </body>
+</body>
 </html>
+
