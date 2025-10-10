@@ -110,8 +110,11 @@
         }
 
         async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-            status.textContent = 'កំពុងទាញយកម៉ូឌែល...';
+            // ** CHANGE: Load models from a local 'models' folder **
+            // Make sure you have downloaded the models and placed them in a 'models' folder
+            // next to your index.html file. See README.md for instructions.
+            const MODEL_URL = './models';
+            status.textContent = 'កំពុងដំណើរការម៉ូឌែល...';
             await Promise.all([
                 faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -336,3 +339,4 @@
     </script>
 </body>
 </html>
+
