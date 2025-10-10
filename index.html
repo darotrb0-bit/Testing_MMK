@@ -55,7 +55,7 @@
         }
 
         #left-panel { flex: 1; min-width: 350px; }
-        .live-mode-active #left-panel { flex: 1; }
+        #main-content.live-mode-active #left-panel { flex: 1; }
         
         #live-camera-panel {
             flex: 1;
@@ -65,7 +65,7 @@
             position: sticky;
             top: 120px; /* Adjust based on header height */
         }
-        .live-mode-active #live-camera-panel { display: flex; }
+        #main-content.live-mode-active #live-camera-panel { display: flex; }
 
 
         .card {
@@ -199,10 +199,10 @@
                 max-width: 100%;
                 position: static;
             }
-            .live-mode-active #left-panel {
+            #main-content.live-mode-active #left-panel {
                 order: 2; /* List comes after camera */
             }
-             .live-mode-active #live-camera-panel {
+             #main-content.live-mode-active #live-camera-panel {
                 order: 1; /* Camera comes first */
             }
         }
@@ -313,7 +313,7 @@
             const COOLDOWN_MINUTES = 1;
 
             // --- DOM ELEMENTS ---
-            const container = document.querySelector('.container');
+            const mainContent = document.getElementById('main-content');
             const employeeInput = document.getElementById('employee-input');
             const employeeDatalist = document.getElementById('employee-list-data');
             const currentDateDisplay = document.getElementById('current-date');
@@ -546,8 +546,7 @@
                 
                 if (!isFaceApiReady || !faceMatcher) {
                     alert('ប្រព័ន្ធសម្គាល់ផ្ទៃមុខមិនទាន់រួចរាល់ទេ។');
-                    liveModeCheckbox.checked = false;
-                    return;
+                    return false; // Indicate failure
                 }
                 
                 stopLiveScanner(true); 
@@ -600,22 +599,29 @@
                             }
                         }, 250);
                     };
+                    return true; // Indicate success
 
                 } catch (err) {
                     console.error("Error accessing camera: ", err);
                     alert("មិនអាចបើកកាមេរ៉ាបានទេ។ សូមពិនិត្យការអនុញ្ញាត (Permission)។");
-                    stopLiveScanner();
+                    return false; // Indicate failure
                 }
             };
             
-            function stopLiveScanner() {
+            function stopLiveScanner(keepLayout = false) {
                 clearInterval(faceScanInterval);
                 if (videoStream) {
                     videoStream.getTracks().forEach(track => track.stop());
                     videoStream = null;
                 }
-                isLiveModeActive = false;
-                container.classList.remove('live-mode-active');
+                
+                if (!keepLayout) {
+                    isLiveModeActive = false;
+                    mainContent.classList.remove('live-mode-active');
+                    if (liveModeCheckbox.checked) {
+                        liveModeCheckbox.checked = false;
+                    }
+                }
             };
 
             // --- DATA & RENDERING FUNCTIONS ---
@@ -896,11 +902,15 @@
             }
 
             // --- EVENT LISTENERS ---
-            liveModeCheckbox.addEventListener('change', (e) => {
-                if(e.target.checked) {
+            liveModeCheckbox.addEventListener('change', async (e) => {
+                if (e.target.checked) {
                     isLiveModeActive = true;
-                    container.classList.add('live-mode-active');
-                    startLiveScanner();
+                    mainContent.classList.add('live-mode-active');
+                    const success = await startLiveScanner();
+                    if (!success) {
+                        // If scanner fails to start, revert UI
+                        stopLiveScanner();
+                    }
                 } else {
                     stopLiveScanner();
                 }
