@@ -3,975 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>កម្មវិធីកត់ត្រាម៉ោងសម្រាក</title>
-    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Battambang:wght@400;700&display=swap" rel="stylesheet">
+    <title>ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Moul&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #0d6efd; --primary-color-darker: #0b5ed7;
-            --success-color: #198754; --danger-color: #dc3545;
-            --secondary-color: #6c757d; --info-color: #0dcaf0;
-            --info-color-darker: #0aa8c7; --light-color: #f8f9fa;
-            --dark-color: #212529; --border-color: #dee2e6;
-            --card-bg: #ffffff; --font-heading: 'Koulen', sans-serif;
-            --font-body: 'Battambang', serif; --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --box-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
-        }
-        *, *::before, *::after { box-sizing: border-box; }
         body {
-            font-family: var(--font-body); background-color: var(--light-color);
-            color: var(--dark-color); margin: 0; padding: 20px;
-            display: flex; justify-content: center; align-items: flex-start;
-            min-height: 100vh;
+            font-family: 'Koulen', sans-serif;
+            background-color: #f0f2f5;
         }
-        .container { width: 100%; max-width: 1200px; }
-        header {
-            text-align: center;
-            position: sticky;
-            top: 0;
-            background: rgba(248, 249, 250, 0.9);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            z-index: 999;
-            padding: 1rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom: 1.5rem;
+        .khmer-moul {
+            font-family: 'Moul', cursive;
         }
-        header h1 {
-            font-family: var(--font-heading); color: var(--primary-color);
-            font-size: 2.2rem; margin: 0; cursor: pointer;
-            transition: color 0.3s ease;
-        }
-        header h1:hover { color: var(--primary-color-darker); }
-        header p {
-            font-size: 1rem; color: #6c757d;
-            margin: 0.25rem 0 0 0;
-        }
-        
-        #main-content {
-            display: flex;
-            flex-direction: row;
-            gap: 25px;
-            align-items: flex-start;
-        }
-
-        #left-panel { flex: 1; min-width: 350px; }
-        #main-content.live-mode-active #left-panel { flex: 1; }
-        
-        #live-camera-panel {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            position: sticky;
-            top: 120px; /* Adjust based on header height */
-        }
-        #main-content.live-mode-active #live-camera-panel { display: flex; }
-
-
-        .card {
-            background-color: var(--card-bg); border-radius: 12px; box-shadow: var(--box-shadow);
-            padding: 25px; margin-bottom: 25px; transition: all 0.5s ease-in-out;
+        #reader {
+            width: 100%;
+            border-radius: 0.5rem;
             overflow: hidden;
         }
-        .selection-card.collapsed {
-            max-height: 0; padding-top: 0; padding-bottom: 0;
-            margin-bottom: 0; opacity: 0; border-width: 0;
+        .scan-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: red;
+            box-shadow: 0 0 10px red;
+            animation: scan 2s infinite linear;
         }
-        .card:hover { box-shadow: var(--box-shadow-hover); }
-        .card h2 {
-            font-family: var(--font-heading); margin-top: 0; margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color); padding-bottom: 15px;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .records-card h2 { cursor: pointer; transition: color 0.3s ease; }
-        .records-card h2:hover { color: var(--primary-color); }
-        .records-card h2 .toggle-icon { transition: transform 0.3s ease; }
-        .records-card.collapsed .records-content { max-height: 0; padding-top: 0; margin-top: -15px; opacity: 0; visibility: hidden; }
-        .records-card.collapsed .toggle-icon { transform: rotate(-90deg); }
-        .records-content { transition: all 0.4s ease-in-out; }
-        .form-group { margin-bottom: 15px; }
-        .scan-controls { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-
-        #employee-input, #filter-input {
-            width: 100%; padding: 12px; font-family: var(--font-body); font-size: 1rem;
-            border: 1px solid var(--border-color); border-radius: 8px;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-        #employee-input:focus, #filter-input:focus {
-            outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.15);
-        }
-        #employee-records-container { display: flex; flex-direction: column; gap: 15px; }
-        .employee-record {
-            display: grid; grid-template-columns: auto 1fr auto; gap: 20px;
-            padding: 15px; border: 2px solid var(--border-color); border-radius: 10px;
-            align-items: center; animation: fadeInDown 0.5s ease-out forwards; opacity: 0;
-            transition: border-color 0.5s ease, background-color 0.5s ease, max-height 0.3s ease-out, opacity 0.3s ease-out;
-        }
-        .employee-record.hidden-by-filter { max-height: 0; opacity: 0; padding: 0; margin: 0; border: none; overflow: hidden; }
-        .employee-photo { flex-shrink: 0; width: 60px; height: 60px; }
-        .employee-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 2px solid var(--border-color); }
-        .employee-info h4 { margin: 0 0 5px 0; font-family: var(--font-heading); font-size: 1.2rem; }
-        .employee-info p { margin: 0; font-size: 0.85rem; color: #6c757d; line-height: 1.6; }
-        .employee-info p strong { color: var(--dark-color); }
-        .employee-actions { display: flex; gap: 10px; }
-        .btn {
-            border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;
-            font-family: var(--font-heading); font-size: 1rem; color: white;
-            transition: transform 0.2s, background-color 0.2s; flex-grow: 1;
-        }
-        .btn:hover { transform: translateY(-2px); }
-        .btn-check-in { background-color: var(--success-color); }
-        .btn-check-in:hover { background-color: #157347; }
-        .btn-delete { background-color: var(--secondary-color); }
-        .btn-delete:hover { background-color: #5a6268; }
-        .btn:disabled { background-color: #9db0c1; cursor: not-allowed; transform: none; }
-        .employee-record.completed { background-color: #e6f9f0; border-color: var(--success-color) !important; }
-        .overdue-status {
-            display: none; align-items: center; gap: 5px; font-weight: 700;
-            color: var(--danger-color); margin-top: 5px; font-size: 0.8rem;
-        }
-        .overdue-status::before { content: '⏰'; font-size: 0.9rem; }
-        .employee-record.overdue .overdue-status { display: flex; }
-        .employee-record.overdue { border-color: var(--danger-color); }
-        .live-mode-toggle { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary-color); }
-        input:checked + .slider:before { transform: translateX(26px); }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
-        .loader-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.85);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 1000; transition: opacity 0.3s;
-        }
-        .loader { border: 8px solid #f3f3f3; border-radius: 50%; border-top: 8px solid var(--primary-color); width: 60px; height: 60px; animation: spin 1s linear infinite; }
-        #loader-message { margin-top: 20px; font-family: var(--font-body); font-size: 1.1rem; color: var(--dark-color); }
-
-        /* Generic Scanner Styles */
-        .face-scanner-container {
-            background: white; padding: 20px; border-radius: 12px; text-align: center;
-            width: 100%; max-width: 500px; position: relative;
-        }
-        .video-container {
-            position: relative; width: 300px; height: 300px; margin: 20px auto;
-            border-radius: 50%; overflow: hidden; border: 3px solid var(--info-color);
-            transition: border-color 0.5s, box-shadow 0.5s;
-        }
-        .video-container.success-flash { border-color: var(--success-color); box-shadow: 0 0 30px rgba(25, 135, 84, 1); }
-        .video-container.error-flash { border-color: var(--danger-color); box-shadow: 0 0 30px rgba(220, 53, 69, 1); }
-        .scan-message-overlay {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7); color: white;
-            padding: 10px 20px; border-radius: 20px; font-size: 1rem;
-            z-index: 5; opacity: 0; transition: opacity 0.5s;
-        }
-        .face-video { width: 100%; height: 100%; object-fit: cover; }
-        .face-canvas { position: absolute; top: 0; left: 0; z-index: 3; }
-
-        /* Custom Modal for Confirmation */
-        .custom-modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.6); 
-            display: none;
-            justify-content: center; align-items: center; z-index: 3000;
-        }
-        .custom-modal {
-            background: white; padding: 30px; border-radius: 12px;
-            text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            max-width: 90%; width: 400px;
-        }
-        .custom-modal p { font-size: 1.1rem; margin-bottom: 25px; }
-        .custom-modal-actions { display: flex; gap: 15px; justify-content: center; }
-        #modal-confirm-btn { background-color: var(--danger-color); }
-        #modal-cancel-btn { background-color: var(--secondary-color); }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        @media (max-width: 900px) {
-            #main-content {
-                flex-direction: column;
-            }
-            #left-panel, #live-camera-panel {
-                width: 100%;
-                max-width: 100%;
-                position: static;
-            }
-            #main-content.live-mode-active #left-panel {
-                order: 2; /* List comes after camera */
-            }
-             #main-content.live-mode-active #live-camera-panel {
-                order: 1; /* Camera comes first */
-            }
-        }
-
-        @media (max-width: 700px) {
-            body { padding: 10px; }
-            header { margin: -10px -10px 1rem -10px; }
-            header h1 { font-size: 2rem; }
-            #current-date { display: none; } .card { padding: 15px; }
-            .employee-record {
-                grid-template-columns: auto 1fr; grid-template-areas: "photo info" "actions actions";
-                row-gap: 12px; column-gap: 12px; padding: 12px;
-            }
-            .employee-photo { grid-area: photo; width: 45px; height: 45px; }
-            .employee-info { grid-area: info; } .employee-info h4 { font-size: 1rem; }
-            .employee-info p { font-size: 0.75rem; line-height: 1.5; }
-            .employee-actions { grid-area: actions; width: 100%; }
-            .employee-actions .btn { flex-grow: 1; text-align: center; font-size: 0.85rem; padding: 10px 8px; }
-            .video-container { width: 250px; height: 250px; }
+        @keyframes scan {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
         }
     </style>
 </head>
-<body>
+<body class="flex items-center justify-center min-h-screen p-4">
 
-    <div class="container">
-        <header>
-            <h1>កត់ត្រាម៉ោងសម្រាក</h1>
-            <p id="current-date"></p>
-        </header>
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
+        
+        <!-- Left Panel: Scanner and Info -->
+        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-gray-50">
+            <h1 class="khmer-moul text-3xl font-bold text-center text-blue-800 mb-2">ប្រព័ន្ធស្កេនវត្តមាន</h1>
+            <div id="clock" class="text-center text-gray-600 mb-6 font-mono"></div>
 
-        <main id="main-content">
-            <div id="left-panel">
-                <div class="card selection-card">
-                    <div class="form-group">
-                        <label for="employee-input">ជ្រើសរើសបុគ្គលិកដោយដៃ</label>
-                        <input type="text" id="employee-input" list="employee-list-data" placeholder="វាយបញ្ចូល ឬជ្រើសរើសឈ្មោះ...">
-                        <datalist id="employee-list-data"></datalist>
-                    </div>
-                    <div class="form-group scan-controls">
-                        <label for="live-mode-checkbox">កាមេរ៉ាផ្ទាល់</label>
-                        <label class="switch">
-                            <input type="checkbox" id="live-mode-checkbox">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="card records-card">
-                    <h2 id="records-header">
-                        <span>បញ្ជីបុគ្គលិកកំពុងសម្រាក</span>
-                        <span class="toggle-icon">▼</span>
-                    </h2>
-                    <div class="records-content">
-                        <div class="form-group">
-                            <input type="text" id="filter-input" placeholder="ស្វែងរកក្នុងបញ្ជី...">
-                        </div>
-                        <div id="employee-records-container">
-                            <p id="no-breaks-message" style="text-align:center; color: #6c757d; display:none;">មិនមានបុគ្គលិកកំពុងសម្រាកទេ។</p>
-                        </div>
+            <div class="relative w-full aspect-square bg-gray-900 rounded-lg overflow-hidden mb-4 shadow-inner">
+                <div id="reader"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-2/3 h-2/3 border-4 border-dashed border-gray-400 rounded-lg relative">
+                         <div class="scan-line"></div>
                     </div>
                 </div>
             </div>
 
-            <div id="live-camera-panel">
-                 <div class="card face-scanner-container">
-                    <p>សូមដាក់ផ្ទៃមុខរបស់លោកអ្នកឲ្យចំកាមេរ៉ា</p>
-                    <div id="video-container-live" class="video-container">
-                        <video id="face-video-live" class="face-video" playsinline autoplay muted></video>
-                        <canvas id="face-canvas-live" class="face-canvas"></canvas>
-                        <div id="scan-message-overlay-live" class="scan-message-overlay"></div>
-                    </div>
+             <div class="mb-4">
+                <label for="employeeId" class="block text-sm font-medium text-gray-700 mb-1">ឬបញ្ចូលអត្តលេខបុគ្គលិក</label>
+                <div class="flex">
+                    <input type="text" id="employeeId" class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500" placeholder="ឧ. EMP001">
+                    <button id="checkIdBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">ស្វែងរក</button>
                 </div>
             </div>
 
-        </main>
-    </div>
+            <div id="loading" class="hidden text-center text-blue-600 my-4">
+                <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p>...កំពុងដំណើរការ...</p>
+            </div>
+             <div id="message" class="text-center my-4 p-3 rounded-lg text-sm"></div>
+        </div>
 
-    <div id="loader" class="loader-overlay" style="display: none;">
-        <div class="loader"></div>
-        <p id="loader-message"></p>
-    </div>
-    
-    <div id="custom-modal" class="custom-modal-overlay">
-        <div class="custom-modal">
-            <p id="modal-message"></p>
-            <div class="custom-modal-actions">
-                <button id="modal-cancel-btn" class="btn">បោះបង់</button>
-                <button id="modal-confirm-btn" class="btn">បញ្ជាក់</button>
+        <!-- Right Panel: Employee Details -->
+        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col items-center justify-center">
+            <div id="employee-info" class="w-full text-center">
+                <div class="w-32 h-32 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </div>
+                <h2 id="employeeName" class="text-2xl font-bold text-gray-800">-</h2>
+                <p id="employeeDetails" class="text-gray-500 mt-1">សូមស្កេន ឬបញ្ចូលអត្តលេខ</p>
+
+                <div id="action-buttons" class="mt-8 space-x-4 hidden">
+                    <button id="checkinBtn" class="bg-green-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-green-700 transition transform hover:scale-105">
+                        CHECK IN
+                    </button>
+                    <button id="checkoutBtn" class="bg-red-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-red-700 transition transform hover:scale-105">
+                        CHECK OUT
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+<script>
+    // ===================================================================================
+    // សំខាន់! សូមបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
+    // សូមអនុវត្តតាមឯកសារណែនាំដើម្បីទទួលបាន URL នេះ
+    // ===================================================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec"; // <--- បិទភ្ជាប់ URL របស់អ្នកនៅទីនេះ
+    // ===================================================================================
+
+    const employeeIdInput = document.getElementById('employeeId');
+    const checkIdBtn = document.getElementById('checkIdBtn');
+    const employeeNameEl = document.getElementById('employeeName');
+    const employeeDetailsEl = document.getElementById('employeeDetails');
+    const actionButtons = document.getElementById('action-buttons');
+    const checkinBtn = document.getElementById('checkinBtn');
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const messageEl = document.getElementById('message');
+    const loadingEl = document.getElementById('loading');
+    const clockEl = document.getElementById('clock');
+    
+    let currentEmployeeId = null;
+
+    // Clock
+    function updateClock() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Phnom_Penh' };
+        const date = now.toLocaleDateString('km-KH', options);
+        const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Phnom_Penh' });
+        clockEl.textContent = `${date} | ${time}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+
+    function showMessage(type, text) {
+        messageEl.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800', 'hidden');
+        if (type === 'success') {
+            messageEl.classList.add('bg-green-100', 'text-green-800');
+        } else if (type === 'error') {
+            messageEl.classList.add('bg-red-100', 'text-red-800');
+        } else {
+             messageEl.classList.add('bg-yellow-100', 'text-yellow-800');
+        }
+        messageEl.textContent = text;
+        setTimeout(() => {
+            messageEl.classList.add('hidden');
+        }, 5000);
+    }
+    
+    function resetUI() {
+        employeeNameEl.textContent = '-';
+        employeeDetailsEl.textContent = 'សូមស្កេន ឬបញ្ចូលអត្តលេខ';
+        actionButtons.classList.add('hidden');
+        employeeIdInput.value = '';
+        currentEmployeeId = null;
+    }
+
+    async function fetchEmployeeData(id) {
+        if (!SCRIPT_URL) {
+            showMessage('error', 'សូមបញ្ចូល Web App URL នៅក្នុងកូដជាមុនសិន!');
+            return;
+        }
+        loadingEl.classList.remove('hidden');
+        messageEl.classList.add('hidden');
+        actionButtons.classList.add('hidden');
+
+        try {
+            const response = await fetch(`${SCRIPT_URL}?action=getEmployee&id=${id}`);
+            const result = await response.json();
             
-            // --- CONFIGURATION ---
-            const SHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
-            const SHEET_NAME = 'DIList';
-            const RANGE = 'E9:AI';
-            const READ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}&range=${RANGE}`;
-            const WRITE_URL = 'https://script.google.com/macros/s/AKfycbxCekjXECxkU-hmWzik1wChzCF7YpWxb7ZA1RHazuxMaUInNRU2nZoe7uh0sdzkXxr6/exec';
-            const STORAGE_KEY = 'activeBreaks';
-            const LAST_ACTION_STORAGE_KEY = 'lastActionTimestamps';
-            const DEFAULT_AVATAR = 'https://i.stack.imgur.com/34AD2.jpg';
-            const OVERDUE_MINUTES = 15;
-            const CONSECUTIVE_MATCHES_REQUIRED = 3;
-            const COOLDOWN_MINUTES = 1;
-
-            // --- DOM ELEMENTS ---
-            const mainContent = document.getElementById('main-content');
-            const employeeInput = document.getElementById('employee-input');
-            const employeeDatalist = document.getElementById('employee-list-data');
-            const currentDateDisplay = document.getElementById('current-date');
-            const recordsContainer = document.getElementById('employee-records-container');
-            const noBreaksMessage = document.getElementById('no-breaks-message');
-            const loader = document.getElementById('loader');
-            const loaderMessage = document.getElementById('loader-message');
-            const filterInput = document.getElementById('filter-input');
-            const recordsHeader = document.getElementById('records-header');
-            const recordsCard = document.querySelector('.records-card');
-            const customModal = document.getElementById('custom-modal');
-            const modalMessage = document.getElementById('modal-message');
-            const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-            const modalCancelBtn = document.getElementById('modal-cancel-btn');
-            const selectionCard = document.querySelector('.selection-card');
-            const mainHeader = document.querySelector('header h1');
-            const liveModeCheckbox = document.getElementById('live-mode-checkbox');
-            
-            // --- STATE VARIABLES ---
-            let allEmployeeData = [];
-            let activeEmployeeData = [];
-            let modalConfirmCallback = null;
-            let processingIds = new Set();
-            let audioCtx;
-            let selectionCollapseTimer, recordsCollapseTimer;
-            let isFaceApiReady = false;
-            let videoStream;
-            let faceMatcher;
-            let faceScanInterval;
-            let matchBuffer = [];
-            let currentFacingMode = 'environment';
-            let isLiveModeActive = false;
-            let isScanningPaused = false;
-
-            // --- HELPER & UI FUNCTIONS ---
-            const showLoader = (show, message = '') => {
-                loaderMessage.textContent = message;
-                loader.style.display = show ? 'flex' : 'none';
-            };
-
-            const getBreaksFromStorage = () => JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            const saveBreaksToStorage = (breaks) => localStorage.setItem(STORAGE_KEY, JSON.stringify(breaks));
-
-            const playAlertSound = () => {
-                try {
-                    if (!audioCtx) {
-                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    }
-                    const oscillator = audioCtx.createOscillator();
-                    const gainNode = audioCtx.createGain();
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioCtx.destination);
-                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-                    gainNode.gain.linearRampToValueAtTime(0.4, audioCtx.currentTime + 0.01);
-                    oscillator.type = 'sine';
-                    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-                    oscillator.start(audioCtx.currentTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.2);
-                    oscillator.stop(audioCtx.currentTime + 0.2);
-                } catch (e) {
-                    console.error("Could not play sound:", e);
-                }
-            };
-
-            const speak = (text) => {
-                if ('speechSynthesis' in window && window.speechSynthesis.getVoices().length > 0) {
-                    const utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'km-KH';
-                    window.speechSynthesis.speak(utterance);
-                }
-            };
-            window.speechSynthesis.onvoiceschanged = () => console.log("Voices loaded.");
-
-            const showCustomConfirm = (message, onConfirm) => {
-                modalMessage.textContent = message;
-                customModal.style.display = 'flex';
-                modalConfirmCallback = onConfirm;
-            };
-
-            const setKhmerDate = () => {
-                const now = new Date();
-                const days = ['អាទិត្យ', 'ច័ន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍'];
-                const months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
-                const khmerNumerals = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
-                const toKhmerNumeral = (num) => String(num).split('').map(d => khmerNumerals[d]).join('');
-                currentDateDisplay.textContent = `ថ្ងៃ${days[now.getDay()]} ទី${toKhmerNumeral(now.getDate())} ខែ${months[now.getMonth()]} ឆ្នាំ${toKhmerNumeral(now.getFullYear())}`;
-            };
-            
-            const checkOverdueBreaks = () => {
-                const now = new Date();
-                const breaks = getBreaksFromStorage();
-                breaks.forEach(breakEntry => {
-                    const recordDiv = recordsContainer.querySelector(`.employee-record[data-id="${breakEntry.id}"]`);
-                    if (recordDiv) {
-                        const checkOutTime = new Date(breakEntry.checkOutTime);
-                        const diffMinutes = (now - checkOutTime) / 60000;
-                        const overdueStatusEl = recordDiv.querySelector('.overdue-status');
-                        if (diffMinutes > OVERDUE_MINUTES) {
-                            const overdueTime = Math.floor(diffMinutes - OVERDUE_MINUTES);
-                            overdueStatusEl.textContent = `លើសកំណត់ ${overdueTime} នាទី`;
-                            recordDiv.classList.add('overdue');
-                        } else {
-                            overdueStatusEl.textContent = '';
-                            recordDiv.classList.remove('overdue');
-                        }
-                    }
-                });
-            };
-            
-            const showScanOverlayMessage = (message, isError = false) => {
-                const overlay = document.getElementById('scan-message-overlay-live');
-                const container = overlay.closest('.video-container');
-                
-                overlay.textContent = message;
-                overlay.style.opacity = '1';
-                container.classList.add(isError ? 'error-flash' : 'success-flash');
-
-                setTimeout(() => {
-                    overlay.style.opacity = '0';
-                    container.classList.remove('success-flash', 'error-flash');
-                }, 2500);
-            };
-
-            const startSelectionCollapseTimer = () => {
-                clearTimeout(selectionCollapseTimer);
-                if (window.innerWidth > 900) return;
-                selectionCollapseTimer = setTimeout(() => {
-                    selectionCard.classList.add('collapsed');
-                }, 24000);
-            };
-
-            const resetSelectionCollapseTimer = () => {
-                if (selectionCard.classList.contains('collapsed')) {
-                    selectionCard.classList.remove('collapsed');
-                }
-                startSelectionCollapseTimer();
-            };
-
-            const startRecordsCollapseTimer = () => {
-                clearTimeout(recordsCollapseTimer);
-                if (window.innerWidth > 900) return;
-                recordsCollapseTimer = setTimeout(() => {
-                    recordsCard.classList.add('collapsed');
-                }, 14000);
-            };
-
-            const resetRecordsCollapseTimer = () => {
-                if (recordsCard.classList.contains('collapsed')) {
-                    recordsCard.classList.remove('collapsed');
-                }
-                startRecordsCollapseTimer();
-            };
-
-            // --- FACE RECOGNITION FUNCTIONS ---
-            async function loadFaceApiModels() {
-                showLoader(true, 'កំពុងដំណើរការម៉ូឌែលសម្គាល់ផ្ទៃមុខ...');
-                const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-                ]);
-                isFaceApiReady = true;
-                console.log('Face API models loaded.');
+            if (result.success) {
+                const { name, gender } = result.data;
+                employeeNameEl.textContent = name;
+                employeeDetailsEl.textContent = `អត្តលេខ: ${id} | ភេទ: ${gender}`;
+                actionButtons.classList.remove('hidden');
+                currentEmployeeId = id;
+                 showMessage('success', `ស្វាគមន៍, ${name}!`);
+            } else {
+                showMessage('error', result.message);
+                resetUI();
             }
+        } catch (error) {
+            showMessage('error', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត។');
+            console.error('Error fetching employee data:', error);
+            resetUI();
+        } finally {
+            loadingEl.classList.add('hidden');
+        }
+    }
 
-            async function getOrCreateFaceMatcher(employeeList) {
-                if (!isFaceApiReady || employeeList.length === 0) return;
-                
-                const today = new Date();
-                const shift = today.getHours() < 12 ? 'morning' : 'afternoon';
-                const dateString = today.toISOString().split('T')[0];
-                const cacheKey = `faceDescriptors-${dateString}-${shift}`;
-                const cachedData = localStorage.getItem(cacheKey);
+    async function logAttendance(type) {
+         if (!SCRIPT_URL) {
+            showMessage('error', 'សូមបញ្ចូល Web App URL នៅក្នុងកូដជាមុនសិន!');
+            return;
+        }
+        if (!currentEmployeeId) {
+            showMessage('error', 'គ្មានព័ត៌មានបុគ្គលិក');
+            return;
+        }
 
-                if (cachedData) {
-                    try {
-                        const descriptors = JSON.parse(cachedData).map(item => faceapi.LabeledFaceDescriptors.fromJSON(item));
-                        faceMatcher = new faceapi.FaceMatcher(descriptors, 0.5); 
-                        console.log('Face Matcher created from cache for:', cacheKey);
-                        return;
-                    } catch (e) {
-                        console.error("Failed to parse cached descriptors, fetching again.", e);
-                        localStorage.removeItem(cacheKey);
-                    }
-                }
-
-                showLoader(true, 'កំពុងរៀបចំទិន្នន័យផ្ទៃមុខ...');
-                try {
-                    let processedCount = 0;
-                    const totalEmployees = employeeList.length;
-                    
-                    const updateProgress = () => {
-                        processedCount++;
-                        const percentage = Math.round((processedCount / totalEmployees) * 100);
-                        showLoader(true, `កំពុងរៀបចំទិន្នន័យផ្ទៃមុខ... (${processedCount}/${totalEmployees}) ${percentage}%`);
-                    };
-
-                    const labeledFaceDescriptors = await Promise.all(
-                        employeeList.map(async (emp) => {
-                            try {
-                                const img = await faceapi.fetchImage(emp.photoUrl);
-                                const detections = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                                updateProgress();
-                                if (!detections) return null;
-                                return new faceapi.LabeledFaceDescriptors(emp.id, [detections.descriptor]);
-                            } catch (e) {
-                                console.error(`Failed to process image for ${emp.name}:`, e);
-                                updateProgress();
-                                return null;
-                            }
-                        })
-                    );
-                    const validDescriptors = labeledFaceDescriptors.filter(d => d !== null);
-                     if (validDescriptors.length > 0) {
-                        faceMatcher = new faceapi.FaceMatcher(validDescriptors, 0.5); 
-                        localStorage.setItem(cacheKey, JSON.stringify(validDescriptors));
-                        console.log('Face Matcher created and saved to cache:', cacheKey);
-                    }
-                } catch (error) {
-                    console.error("Error creating face matcher: ", error);
-                } finally {
-                    showLoader(false);
-                }
+        loadingEl.classList.remove('hidden');
+        messageEl.classList.add('hidden');
+        
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain',
+                },
+                body: JSON.stringify({
+                    action: 'logAttendance',
+                    id: currentEmployeeId,
+                    type: type
+                })
+            });
+            const result = await response.json();
+             if (result.success) {
+                showMessage('success', result.message);
+            } else {
+                showMessage('error', result.message);
             }
+        } catch (error) {
+            showMessage('error', 'មានបញ្ហាក្នុងការកត់ត្រា សូមព្យាយាមម្តងទៀត។');
+             console.error('Error logging attendance:', error);
+        } finally {
+            loadingEl.classList.add('hidden');
+            setTimeout(resetUI, 3000);
+        }
+    }
+    
+    checkIdBtn.addEventListener('click', () => {
+        const id = employeeIdInput.value.trim();
+        if (id) {
+            fetchEmployeeData(id);
+        } else {
+            showMessage('info', 'សូមបញ្ចូលអត្តលេខបុគ្គលិក');
+        }
+    });
 
-            async function startLiveScanner() {
-                const videoEl = document.getElementById('face-video-live');
-                const canvasEl = document.getElementById('face-canvas-live');
-                
-                if (!isFaceApiReady || !faceMatcher) {
-                    alert('ប្រព័ន្ធសម្គាល់ផ្ទៃមុខមិនទាន់រួចរាល់ទេ។');
-                    return false; // Indicate failure
-                }
-                
-                stopLiveScanner(true); 
-                matchBuffer = []; 
-                isScanningPaused = false;
-                try {
-                    videoStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: currentFacingMode } 
-                    });
-                    videoEl.srcObject = videoStream;
-                    videoEl.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-                    
-                    videoEl.onplay = () => {
-                        const displaySize = { width: videoEl.clientWidth, height: videoEl.clientHeight };
-                        faceapi.matchDimensions(canvasEl, displaySize);
-                        
-                        clearInterval(faceScanInterval);
-                        const tinyFaceDetectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    employeeIdInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            checkIdBtn.click();
+        }
+    });
 
-                        faceScanInterval = setInterval(async () => {
-                            if (isScanningPaused) return;
+    checkinBtn.addEventListener('click', () => logAttendance('checkin'));
+    checkoutBtn.addEventListener('click', () => logAttendance('checkout'));
 
-                            const detections = await faceapi.detectAllFaces(videoEl, tinyFaceDetectorOptions).withFaceLandmarks().withFaceDescriptors();
-                            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                            
-                            const context = canvasEl.getContext('2d');
-                            context.clearRect(0, 0, canvasEl.width, canvasEl.height);
-                            
-                            if (detections.length > 0) {
-                                const largestDetection = resizedDetections.sort((a,b) => b.detection.box.area - a.detection.box.area)[0];
-                                const bestMatch = faceMatcher.findBestMatch(largestDetection.descriptor);
-                                
-                                if (bestMatch.label !== 'unknown') {
-                                    matchBuffer.push(bestMatch.label);
-                                } else {
-                                    matchBuffer = [];
-                                }
+    // QR Code Scanner
+    function onScanSuccess(decodedText, decodedResult) {
+        console.log(`Code matched = ${decodedText}`, decodedResult);
+        employeeIdInput.value = decodedText;
+        fetchEmployeeData(decodedText);
+        html5QrcodeScanner.clear(); // Stop scanning after success
+    }
 
-                                if (matchBuffer.length >= CONSECUTIVE_MATCHES_REQUIRED) {
-                                    const allSame = matchBuffer.every(val => val === matchBuffer[0]);
-                                    if (allSame) {
-                                        isScanningPaused = true;
-                                        handleScanResult(matchBuffer[0]);
-                                        setTimeout(() => { isScanningPaused = false; }, 3000); 
-                                    }
-                                    matchBuffer = [];
-                                }
-                            } else {
-                                matchBuffer = [];
-                            }
-                        }, 250);
-                    };
-                    return true; // Indicate success
+    function onScanFailure(error) {
+        // console.warn(`Code scan error = ${error}`);
+    }
 
-                } catch (err) {
-                    console.error("Error accessing camera: ", err);
-                    alert("មិនអាចបើកកាមេរ៉ាបានទេ។ សូមពិនិត្យការអនុញ្ញាត (Permission)។");
-                    return false; // Indicate failure
-                }
-            };
-            
-            function stopLiveScanner(keepLayout = false) {
-                clearInterval(faceScanInterval);
-                if (videoStream) {
-                    videoStream.getTracks().forEach(track => track.stop());
-                    videoStream = null;
-                }
-                
-                if (!keepLayout) {
-                    isLiveModeActive = false;
-                    mainContent.classList.remove('live-mode-active');
-                    if (liveModeCheckbox.checked) {
-                        liveModeCheckbox.checked = false;
-                    }
-                }
-            };
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        false
+    );
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
 
-            // --- DATA & RENDERING FUNCTIONS ---
-            const loadEmployeeData = async () => {
-                showLoader(true, 'កំពុងទាញយកកាលវិភាគ...');
-                try {
-                    const response = await fetch(READ_URL);
-                    const csvText = await response.text();
-                    const allRows = csvText.split('\n').map(row => row.split(',').map(cell => cell.replace(/"/g, '')));
-                    
-                    const day = new Date().getDay();
-                    const shift = new Date().getHours() < 12 ? 'morning' : 'afternoon';
-                    const scheduleColIndex = [30, 24, 25, 26, 27, 28, 29][day]; 
-                    
-                    allEmployeeData = allRows.map(row => ({
-                         id: row[0]?.trim(), 
-                         name: row[7], 
-                         department: row[14] || 'N/A', 
-                         photoUrl: row[22],
-                         schedule: row[scheduleColIndex]?.trim() || '',
-                         searchValue: `${row[7]} (${row[0]?.trim()})`
-                    })).filter(emp => emp.id && emp.name && emp.photoUrl);
-
-                    activeEmployeeData = allEmployeeData.filter(emp => {
-                        if (shift === 'morning') {
-                            return emp.schedule === 'ពេញម៉ោង' || emp.schedule === 'មួយព្រឹក';
-                        } else {
-                            return emp.schedule === 'ពេញម៉ោង' || emp.schedule === 'មួយរសៀល';
-                        }
-                    });
-
-                    employeeDatalist.innerHTML = '';
-                    activeEmployeeData.forEach(emp => {
-                        const option = document.createElement('option');
-                        option.value = emp.searchValue;
-                        employeeDatalist.appendChild(option);
-                    });
-                     console.log(`Loaded ${activeEmployeeData.length} employees for today's ${shift} shift.`);
-
-                } catch (error) { 
-                    console.error('Error fetching data:', error); 
-                } finally { 
-                    showLoader(false); 
-                }
-            };
-
-            const handleScanResult = async (employeeId) => {
-                const breaks = getBreaksFromStorage();
-                const isOnBreak = breaks.some(b => b.id === employeeId);
-                if (isOnBreak) {
-                    await handleCheckIn(employeeId);
-                } else {
-                    await handleCheckOut(employeeId);
-                }
-            };
-            
-            const handleCheckOut = async (employeeId) => {
-                if (processingIds.has(employeeId)) return;
-
-                const timestamps = JSON.parse(localStorage.getItem(LAST_ACTION_STORAGE_KEY)) || {};
-                const lastActionTime = timestamps[employeeId];
-                if (lastActionTime) {
-                    const now = new Date().getTime();
-                    const diffMinutes = (now - lastActionTime) / 60000;
-                    if (diffMinutes < COOLDOWN_MINUTES) {
-                        const remainingSeconds = Math.ceil((COOLDOWN_MINUTES - diffMinutes) * 60);
-                        const message = `សូមរង់ចាំ ${remainingSeconds} វិនាទីទៀត...`;
-                        if(isLiveModeActive) showScanOverlayMessage(message, true); else alert(message);
-                        return;
-                    }
-                }
-
-                try {
-                    processingIds.add(employeeId);
-
-                    const selectedEmployee = activeEmployeeData.find(emp => emp.id === employeeId);
-                    if (!selectedEmployee) {
-                        const message = 'បុគ្គលិកនេះមិនមានក្នុងវេននេះទេ';
-                         if(isLiveModeActive) showScanOverlayMessage(message, true); else alert(message);
-                        return;
-                    }
-
-                    const breaks = getBreaksFromStorage();
-                    if (breaks.some(b => b.id === employeeId)) {
-                        const message = `បុគ្គលិក (${selectedEmployee.name}) បានចុះឈ្មោះចេញទៅក្រៅរួចហើយ។`;
-                        if(isLiveModeActive) showScanOverlayMessage(message, true); else alert(message);
-                        return;
-                    }
-
-                    const newBreak = { id: selectedEmployee.id, name: selectedEmployee.name, department: selectedEmployee.department, photoUrl: selectedEmployee.photoUrl, checkOutTime: new Date().toISOString() };
-                    breaks.push(newBreak);
-                    saveBreaksToStorage(breaks);
-                    renderBreakList();
-
-                    const newTimestamps = JSON.parse(localStorage.getItem(LAST_ACTION_STORAGE_KEY)) || {};
-                    newTimestamps[employeeId] = new Date().getTime();
-                    localStorage.setItem(LAST_ACTION_STORAGE_KEY, JSON.stringify(newTimestamps));
-                    
-                    playAlertSound();
-                    const successMessage = `បុគ្គលិក ${selectedEmployee.name} បានស្កេនចេញ`;
-                    speak(successMessage);
-                    if(isLiveModeActive) showScanOverlayMessage(successMessage);
-                    employeeInput.value = '';
-                } finally {
-                    processingIds.delete(employeeId);
-                }
-            };
-
-            const handleCheckIn = async (employeeId) => {
-                const timestamps = JSON.parse(localStorage.getItem(LAST_ACTION_STORAGE_KEY)) || {};
-                const lastActionTime = timestamps[employeeId];
-                if (lastActionTime) {
-                    const now = new Date().getTime();
-                    const diffMinutes = (now - lastActionTime) / 60000;
-                    if (diffMinutes < COOLDOWN_MINUTES) {
-                        const remainingSeconds = Math.ceil((COOLDOWN_MINUTES - diffMinutes) * 60);
-                        const message = `សូមរង់ចាំ ${remainingSeconds} វិនាទីទៀត...`;
-                        if(isLiveModeActive) showScanOverlayMessage(message, true); else alert(message);
-                        return;
-                    }
-                }
-
-                if (processingIds.has(employeeId)) return;
-
-                const breaks = getBreaksFromStorage();
-                const breakEntry = breaks.find(b => b.id === employeeId);
-                if (!breakEntry) return;
-
-                processingIds.add(employeeId);
-
-                const updatedBreaks = breaks.filter(b => b.id !== employeeId);
-                saveBreaksToStorage(updatedBreaks);
-                renderBreakList();
-                playAlertSound();
-                const checkInMessage = `បុគ្គលិក ${breakEntry.name} បានស្កេនចូល`;
-                speak(checkInMessage);
-                 if(isLiveModeActive) showScanOverlayMessage(`បានស្កេនចូល: ${breakEntry.name}`);
-
-                try {
-                    const checkOutTime = new Date(breakEntry.checkOutTime);
-                    const checkInTime = new Date();
-                    const diffMs = checkInTime - checkOutTime;
-                    const diffHrs = Math.floor(diffMs / 3600000);
-                    const diffMins = Math.round((diffMs % 3600000) / 60000);
-                    const duration = `${diffHrs} ម៉ោង ${diffMins} នាទី`;
-                    
-                    const dataToSave = { employeeId: breakEntry.id, employeeName: breakEntry.name, department: breakEntry.department, date: new Date().toLocaleDateString('en-CA'), startTime: checkOutTime.toLocaleTimeString('en-GB'), stopTime: checkInTime.toLocaleTimeString('en-GB'), duration: duration };
-                    const saveSuccess = await saveData(dataToSave);
-
-                    if (saveSuccess) {
-                        const newTimestamps = JSON.parse(localStorage.getItem(LAST_ACTION_STORAGE_KEY)) || {};
-                        newTimestamps[employeeId] = new Date().getTime();
-                        localStorage.setItem(LAST_ACTION_STORAGE_KEY, JSON.stringify(newTimestamps));
-                        console.log("Save successful for " + employeeId);
-                    } else {
-                        console.error("Save failed. Reverting UI for " + employeeId);
-                        const currentBreaks = getBreaksFromStorage();
-                        currentBreaks.push(breakEntry);
-                        saveBreaksToStorage(currentBreaks);
-                        renderBreakList();
-                        const errorMessage = 'រក្សាទុកទិន្នន័យមិនสำเร็จ!';
-                         if(isLiveModeActive) showScanOverlayMessage(errorMessage, true); else alert(errorMessage);
-                    }
-                } catch (error) {
-                    console.error("Critical error during save for " + employeeId, error);
-                    const currentBreaks = getBreaksFromStorage();
-                    currentBreaks.push(breakEntry);
-                    saveBreaksToStorage(currentBreaks);
-                    renderBreakList();
-                    alert('មានបញ្ហាធ្ងន់ធ្ងរកើតឡើងពេលកំពុងរក្សាទុក។');
-                }
-                finally {
-                    processingIds.delete(employeeId);
-                }
-            };
-            
-            const saveData = async (data) => {
-                 try {
-                     const response = await fetch(WRITE_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(data) });
-                     if (!response.ok) { throw new Error(`Network response was not ok, status: ${response.status}`); }
-                     console.log("Save request sent successfully.");
-                     return true;
-                 } catch (error) { 
-                     console.error('Save failed:', error); 
-                     return false; 
-                 }
-            };
-
-            const renderBreakList = () => {
-                const breaks = getBreaksFromStorage();
-                recordsContainer.innerHTML = '';
-                if (breaks.length === 0) {
-                    noBreaksMessage.style.display = 'block';
-                } else {
-                    noBreaksMessage.style.display = 'none';
-                    breaks.sort((a, b) => new Date(a.checkOutTime) - new Date(b.checkOutTime));
-                    breaks.forEach(breakEntry => addEmployeeToUI(breakEntry));
-                }
-                checkOverdueBreaks();
-                filterBreakList();
-            };
-
-            const filterBreakList = () => {
-                const filterValue = filterInput.value.toLowerCase().trim();
-                const records = recordsContainer.querySelectorAll('.employee-record');
-                let visibleCount = 0;
-                records.forEach(record => {
-                    const name = record.querySelector('.employee-info h4').textContent.toLowerCase();
-                    const id = record.dataset.id.toLowerCase();
-                    const department = record.querySelector('.employee-info p:first-of-type').textContent.toLowerCase();
-
-                    if (name.includes(filterValue) || id.includes(filterValue) || department.includes(filterValue)) {
-                        record.classList.remove('hidden-by-filter');
-                        visibleCount++;
-                    } else {
-                        record.classList.add('hidden-by-filter');
-                    }
-                });
-                noBreaksMessage.style.display = visibleCount === 0 && getBreaksFromStorage().length > 0 ? 'block' : 'none';
-                if(getBreaksFromStorage().length > 0 && visibleCount === 0) {
-                    noBreaksMessage.textContent = "មិនមានលទ្ធផលត្រូវគ្នានឹងការស្វែងរកទេ។";
-                } else {
-                    noBreaksMessage.textContent = "មិនមានបុគ្គលិកកំពុងសម្រាកទេ។";
-                }
-
-            };
-
-            const addEmployeeToUI = (breakEntry) => {
-                const checkOutTime = new Date(breakEntry.checkOutTime);
-                const recordDiv = document.createElement('div');
-                recordDiv.classList.add('employee-record');
-                recordDiv.setAttribute('data-id', breakEntry.id);
-                
-                recordDiv.innerHTML = `
-                    <div class="employee-photo">
-                        <img src="${breakEntry.photoUrl}" alt="Photo of ${breakEntry.name}" onerror="this.onerror=null;this.src='${DEFAULT_AVATAR}';">
-                    </div>
-                    <div class="employee-info">
-                        <h4>${breakEntry.name} (${breakEntry.id})</h4>
-                        <p><strong>ផ្នែក:</strong> ${breakEntry.department}</p>
-                        <p><strong>ម៉ោងចេញ:</strong> <span class="start-time">${checkOutTime.toLocaleTimeString('en-GB')}</span></p>
-                        <p class="overdue-status"></p>
-                    </div>
-                    <div class="employee-actions">
-                        <button class="btn btn-delete">លុប</button>
-                        <button class="btn btn-check-in">ចូល</button> 
-                    </div>
-                `;
-                recordsContainer.appendChild(recordDiv);
-
-                recordDiv.querySelector('.btn-check-in').addEventListener('click', () => handleCheckIn(breakEntry.id));
-
-                recordDiv.querySelector('.btn-delete').addEventListener('click', () => {
-                    showCustomConfirm(`តើអ្នកពិតជាចង់លុប "${breakEntry.name}" មែនទេ?`, () => {
-                        const breaks = getBreaksFromStorage().filter(b => b.id !== breakEntry.id);
-                        saveBreaksToStorage(breaks);
-                        renderBreakList();
-                    });
-                });
-            };
-
-            // --- MAIN INITIALIZATION ---
-            async function initializeApp() {
-                setKhmerDate();
-                renderBreakList();
-                
-                const modelsPromise = loadFaceApiModels();
-                await loadEmployeeData();
-                await modelsPromise;
-
-                if(activeEmployeeData.length > 0) {
-                    await getOrCreateFaceMatcher(activeEmployeeData);
-                }
-
-                setInterval(checkOverdueBreaks, 30000);
-                startSelectionCollapseTimer();
-                startRecordsCollapseTimer();
-            }
-
-            // --- EVENT LISTENERS ---
-            liveModeCheckbox.addEventListener('change', async (e) => {
-                if (e.target.checked) {
-                    isLiveModeActive = true;
-                    mainContent.classList.add('live-mode-active');
-                    const success = await startLiveScanner();
-                    if (!success) {
-                        // If scanner fails to start, revert UI
-                        stopLiveScanner();
-                    }
-                } else {
-                    stopLiveScanner();
-                }
-            });
-
-            employeeInput.addEventListener('input', (e) => {
-                const value = e.target.value;
-                const selectedEmployee = activeEmployeeData.find(emp => emp.searchValue === value);
-                if (selectedEmployee) {
-                    handleCheckOut(selectedEmployee.id);
-                }
-            });
-
-            filterInput.addEventListener('input', filterBreakList);
-
-            mainHeader.addEventListener('click', resetSelectionCollapseTimer);
-            ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(evt => {
-                selectionCard.addEventListener(evt, resetSelectionCollapseTimer, { passive: true });
-            });
-
-            recordsHeader.addEventListener('click', () => {
-                const isGoingToCollapse = !recordsCard.classList.contains('collapsed');
-                recordsCard.classList.toggle('collapsed');
-                if (isGoingToCollapse) {
-                    clearTimeout(recordsCollapseTimer);
-                } else {
-                    resetRecordsCollapseTimer();
-                }
-            });
-
-            recordsCard.addEventListener('mousemove', (e) => {
-                 if(e.target.closest('#records-header') === null) {
-                    resetRecordsCollapseTimer();
-                }
-            }, { passive: true });
-             recordsCard.addEventListener('keydown', resetRecordsCollapseTimer, { passive: true });
-            
-            modalCancelBtn.addEventListener('click', () => {
-                customModal.style.display = 'none';
-                modalConfirmCallback = null;
-            });
-            modalConfirmBtn.addEventListener('click', () => {
-                if (modalConfirmCallback) {
-                    modalConfirmCallback();
-                }
-                customModal.style.display = 'none';
-                modalConfirmCallback = null;
-            });
-
-            window.addEventListener('resize', () => {
-                if (window.innerWidth > 900) {
-                    clearTimeout(selectionCollapseTimer);
-                    clearTimeout(recordsCollapseTimer);
-                    selectionCard.classList.remove('collapsed');
-                    recordsCard.classList.remove('collapsed');
-                }
-            });
-            
-            initializeApp();
-        });
-    </script>
+</script>
 </body>
 </html>
-
