@@ -3,262 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ប្រព័ន្ធគ្រប់គ្រងវត្តមានបុគ្គលិក</title>
+    <title>ប្រព័ន្ធវត្តមានបុគ្គលិក (Employee Attendance System)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Moul&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Koulen', sans-serif;
-            background-color: #f0f2f5;
         }
-        .khmer-moul {
-            font-family: 'Moul', cursive;
+        .kh-moul {
+            font-family: 'Moul', serif;
         }
-        #reader {
-            width: 100%;
-            border-radius: 0.5rem;
-            overflow: hidden;
-        }
-        .scan-line {
+        #video, #overlay {
             position: absolute;
+            top: 0;
             left: 0;
-            right: 0;
-            height: 2px;
-            background: red;
-            box-shadow: 0 0 10px red;
-            animation: scan 2s infinite linear;
-        }
-        @keyframes scan {
-            0% { top: 0; }
-            50% { top: 100%; }
-            100% { top: 0; }
+            transform: scaleX(-1);
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-4">
+        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+            <header class="text-center mb-6">
+                <h1 class="text-4xl md:text-5xl font-bold text-blue-700 kh-moul">ប្រព័ន្ធស្កេនវត្តមានបុគ្គលិក</h1>
+                <p class="text-gray-600 mt-2 text-lg">សូមដាក់មុខរបស់លោកអ្នកនៅមុខកាមេរ៉ា</p>
+            </header>
 
-    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
-        
-        <!-- Left Panel: Scanner and Info -->
-        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col bg-gray-50">
-            <h1 class="khmer-moul text-3xl font-bold text-center text-blue-800 mb-2">ប្រព័ន្ធស្កេនវត្តមាន</h1>
-            <div id="clock" class="text-center text-gray-600 mb-6 font-mono"></div>
+            <div class="grid md:grid-cols-2 gap-8 items-center">
+                <!-- Camera and Overlay -->
+                <div class="relative w-full aspect-video mx-auto bg-gray-900 rounded-lg overflow-hidden shadow-inner">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                    <div id="loader" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white">
+                        <svg class="animate-spin h-10 w-10 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p id="status" class="text-lg">កំពុងដំណើរការម៉ូឌែល...</p>
+                    </div>
+                </div>
 
-            <div class="relative w-full aspect-square bg-gray-900 rounded-lg overflow-hidden mb-4 shadow-inner">
-                <div id="reader"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <div class="w-2/3 h-2/3 border-4 border-dashed border-gray-400 rounded-lg relative">
-                         <div class="scan-line"></div>
+                <!-- Employee Information -->
+                <div id="employee-info" class="bg-gray-50 p-6 rounded-lg shadow-md transition-opacity duration-500 opacity-0">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">ព័ត៌មានបុគ្គលិក</h2>
+                    <div class="flex flex-col items-center space-y-4">
+                        <img id="employee-image" src="https://placehold.co/150x150/e2e8f0/adb5bd?text=រូបថត" class="w-36 h-36 rounded-full object-cover border-4 border-gray-200 shadow-sm">
+                        <div class="text-center">
+                            <p class="text-xl font-semibold text-blue-600" id="employee-name">ឈ្មោះបុគ្គលិក</p>
+                            <p class="text-gray-500 text-md">អត្តលេខ: <span id="employee-id" class="font-medium">N/A</span></p>
+                            <p class="text-gray-500 text-md">ភេទ: <span id="employee-gender" class="font-medium">N/A</span></p>
+                        </div>
+                        <div class="w-full pt-4">
+                             <div class="flex space-x-4">
+                                <button id="check-in-btn" disabled class="w-full bg-green-500 text-white py-3 rounded-lg text-lg font-semibold hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md">Check In</button>
+                                <button id="check-out-btn" disabled class="w-full bg-red-500 text-white py-3 rounded-lg text-lg font-semibold hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-md">Check Out</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- System Messages -->
+            <div id="message-box" class="mt-6 p-4 text-center rounded-lg text-white font-semibold hidden"></div>
 
-             <div class="mb-4">
-                <label for="employeeId" class="block text-sm font-medium text-gray-700 mb-1">ឬបញ្ចូលអត្តលេខបុគ្គលិក</label>
-                <div class="flex">
-                    <input type="text" id="employeeId" class="flex-grow p-3 border border-gray-300 rounded-l-lg focus:ring-blue-500 focus:border-blue-500" placeholder="ឧ. EMP001">
-                    <button id="checkIdBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">ស្វែងរក</button>
-                </div>
-            </div>
-
-            <div id="loading" class="hidden text-center text-blue-600 my-4">
-                <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p>...កំពុងដំណើរការ...</p>
-            </div>
-             <div id="message" class="text-center my-4 p-3 rounded-lg text-sm"></div>
-        </div>
-
-        <!-- Right Panel: Employee Details -->
-        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col items-center justify-center">
-            <div id="employee-info" class="w-full text-center">
-                <div class="w-32 h-32 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                     <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                </div>
-                <h2 id="employeeName" class="text-2xl font-bold text-gray-800">-</h2>
-                <p id="employeeDetails" class="text-gray-500 mt-1">សូមស្កេន ឬបញ្ចូលអត្តលេខ</p>
-
-                <div id="action-buttons" class="mt-8 space-x-4 hidden">
-                    <button id="checkinBtn" class="bg-green-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-green-700 transition transform hover:scale-105">
-                        CHECK IN
-                    </button>
-                    <button id="checkoutBtn" class="bg-red-600 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-red-700 transition transform hover:scale-105">
-                        CHECK OUT
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
-<script>
-    // ===================================================================================
-    // សំខាន់! សូមបិទភ្ជាប់ Web App URL របស់អ្នកនៅទីនេះ
-    // សូមអនុវត្តតាមឯកសារណែនាំដើម្បីទទួលបាន URL នេះ
-    // ===================================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec"; // <--- បិទភ្ជាប់ URL របស់អ្នកនៅទីនេះ
-    // ===================================================================================
+    <script>
+        // --- CONFIGURATION ---
+        // 1. បញ្ចូល URL របស់ Google Sheet ដែលបាន Publish ជា CSV
+        const SPREADSHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT24HwHAK20Ua8hXyHZXE5z_iS6sZzT7W8aV6o_rI0l5B2nF6mG3pY7hW8dY9uO0jI-xL5qZ4rA0k3N/pub?gid=1943834380&single=true&output=csv';
 
-    const employeeIdInput = document.getElementById('employeeId');
-    const checkIdBtn = document.getElementById('checkIdBtn');
-    const employeeNameEl = document.getElementById('employeeName');
-    const employeeDetailsEl = document.getElementById('employeeDetails');
-    const actionButtons = document.getElementById('action-buttons');
-    const checkinBtn = document.getElementById('checkinBtn');
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    const messageEl = document.getElementById('message');
-    const loadingEl = document.getElementById('loading');
-    const clockEl = document.getElementById('clock');
-    
-    let currentEmployeeId = null;
+        // 2. បញ្ចូល URL របស់ Web App ដែលបាន Deploy ពី Google Apps Script
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec';
+        // -------------------
 
-    // Clock
-    function updateClock() {
-        const now = new Date();
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Phnom_Penh' };
-        const date = now.toLocaleDateString('km-KH', options);
-        const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true, timeZone: 'Asia/Phnom_Penh' });
-        clockEl.textContent = `${date} | ${time}`;
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-
-    function showMessage(type, text) {
-        messageEl.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800', 'hidden');
-        if (type === 'success') {
-            messageEl.classList.add('bg-green-100', 'text-green-800');
-        } else if (type === 'error') {
-            messageEl.classList.add('bg-red-100', 'text-red-800');
-        } else {
-             messageEl.classList.add('bg-yellow-100', 'text-yellow-800');
-        }
-        messageEl.textContent = text;
-        setTimeout(() => {
-            messageEl.classList.add('hidden');
-        }, 5000);
-    }
-    
-    function resetUI() {
-        employeeNameEl.textContent = '-';
-        employeeDetailsEl.textContent = 'សូមស្កេន ឬបញ្ចូលអត្តលេខ';
-        actionButtons.classList.add('hidden');
-        employeeIdInput.value = '';
-        currentEmployeeId = null;
-    }
-
-    async function fetchEmployeeData(id) {
-        if (!SCRIPT_URL) {
-            showMessage('error', 'សូមបញ្ចូល Web App URL នៅក្នុងកូដជាមុនសិន!');
-            return;
-        }
-        loadingEl.classList.remove('hidden');
-        messageEl.classList.add('hidden');
-        actionButtons.classList.add('hidden');
-
-        try {
-            const response = await fetch(`${SCRIPT_URL}?action=getEmployee&id=${id}`);
-            const result = await response.json();
-            
-            if (result.success) {
-                const { name, gender } = result.data;
-                employeeNameEl.textContent = name;
-                employeeDetailsEl.textContent = `អត្តលេខ: ${id} | ភេទ: ${gender}`;
-                actionButtons.classList.remove('hidden');
-                currentEmployeeId = id;
-                 showMessage('success', `ស្វាគមន៍, ${name}!`);
-            } else {
-                showMessage('error', result.message);
-                resetUI();
-            }
-        } catch (error) {
-            showMessage('error', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត។');
-            console.error('Error fetching employee data:', error);
-            resetUI();
-        } finally {
-            loadingEl.classList.add('hidden');
-        }
-    }
-
-    async function logAttendance(type) {
-         if (!SCRIPT_URL) {
-            showMessage('error', 'សូមបញ្ចូល Web App URL នៅក្នុងកូដជាមុនសិន!');
-            return;
-        }
-        if (!currentEmployeeId) {
-            showMessage('error', 'គ្មានព័ត៌មានបុគ្គលិក');
-            return;
-        }
-
-        loadingEl.classList.remove('hidden');
-        messageEl.classList.add('hidden');
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const loader = document.getElementById('loader');
+        const status = document.getElementById('status');
+        const employeeInfo = document.getElementById('employee-info');
+        const checkInBtn = document.getElementById('check-in-btn');
+        const checkOutBtn = document.getElementById('check-out-btn');
+        const messageBox = document.getElementById('message-box');
         
-        try {
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain',
-                },
-                body: JSON.stringify({
-                    action: 'logAttendance',
-                    id: currentEmployeeId,
-                    type: type
-                })
-            });
-            const result = await response.json();
-             if (result.success) {
-                showMessage('success', result.message);
-            } else {
-                showMessage('error', result.message);
+        let detectedEmployee = null;
+        let faceMatcher = null;
+        let lastCheckTime = 0;
+
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user' },
+                    audio: false
+                });
+                video.srcObject = stream;
+                return new Promise((resolve) => {
+                    video.onloadedmetadata = () => resolve(video);
+                });
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                status.textContent = 'មិនអាចបើកកាមេរ៉ាបានទេ';
+                alert('សូមអនុញ្ញាតឱ្យប្រើប្រាស់កាមេរ៉ា រួចព្យាយាមម្តងទៀត។');
             }
-        } catch (error) {
-            showMessage('error', 'មានបញ្ហាក្នុងការកត់ត្រា សូមព្យាយាមម្តងទៀត។');
-             console.error('Error logging attendance:', error);
-        } finally {
-            loadingEl.classList.add('hidden');
-            setTimeout(resetUI, 3000);
         }
-    }
-    
-    checkIdBtn.addEventListener('click', () => {
-        const id = employeeIdInput.value.trim();
-        if (id) {
-            fetchEmployeeData(id);
-        } else {
-            showMessage('info', 'សូមបញ្ចូលអត្តលេខបុគ្គលិក');
+
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+            status.textContent = 'កំពុងទាញយកម៉ូឌែល...';
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+            ]);
         }
-    });
 
-    employeeIdInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            checkIdBtn.click();
+        async function getLabeledFaceDescriptors() {
+            status.textContent = 'កំពុងទាញយកទិន្នន័យបុគ្គលិក...';
+            try {
+                const response = await fetch(SPREADSHEET_CSV_URL);
+                const csvText = await response.text();
+                const rows = csvText.split('\n').slice(8).map(row => row.trim()); // Skip header rows (E9:E starts at index 8)
+                
+                const labeledDescriptors = [];
+                for (const row of rows) {
+                    const columns = row.split(',');
+                    // Column mapping based on the request
+                    const id = columns[4]; // E
+                    const name = columns[11]; // L
+                    const gender = columns[13]; // N
+                    const imageUrl = columns[26]; // AA
+                    
+                    if (id && name && imageUrl) {
+                         try {
+                            const img = await faceapi.fetchImage(`https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`);
+                            const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                            if (detections) {
+                                const descriptor = new Float32Array(detections.descriptor);
+                                labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(
+                                    JSON.stringify({ id, name, gender, imageUrl }),
+                                    [descriptor]
+                                ));
+                                console.log(`Processed: ${name}`);
+                            } else {
+                                console.warn(`No face detected for ${name} from URL: ${imageUrl}`);
+                            }
+                        } catch (e) {
+                            console.error(`Could not process image for ${name}:`, e);
+                        }
+                    }
+                }
+                if(labeledDescriptors.length === 0) {
+                    throw new Error("No employee data could be processed. Check CSV URL and image links.");
+                }
+                return labeledDescriptors;
+
+            } catch (error) {
+                console.error("Error fetching or parsing spreadsheet data:", error);
+                status.textContent = 'Error: មិនអាចទាញទិន្នន័យបាន';
+                alert('បញ្ហាទាញទិន្នន័យបុគ្គលិក។ សូមពិនិត្យ URL របស់ CSV និងការតភ្ជាប់ Internet។');
+                return [];
+            }
         }
-    });
+        
+        function updateEmployeeInfo(employee) {
+            if (employee) {
+                employeeInfo.classList.remove('opacity-0');
+                document.getElementById('employee-image').src = employee.imageUrl;
+                document.getElementById('employee-name').textContent = employee.name;
+                document.getElementById('employee-id').textContent = employee.id;
+                document.getElementById('employee-gender').textContent = employee.gender;
+                checkInBtn.disabled = false;
+                checkOutBtn.disabled = false;
+            } else {
+                employeeInfo.classList.add('opacity-0');
+                document.getElementById('employee-image').src = "https://placehold.co/150x150/e2e8f0/adb5bd?text=រូបថត";
+                document.getElementById('employee-name').textContent = 'ឈ្មោះបុគ្គលិក';
+                document.getElementById('employee-id').textContent = 'N/A';
+                document.getElementById('employee-gender').textContent = 'N/A';
+                checkInBtn.disabled = true;
+                checkOutBtn.disabled = true;
+            }
+        }
 
-    checkinBtn.addEventListener('click', () => logAttendance('checkin'));
-    checkoutBtn.addEventListener('click', () => logAttendance('checkout'));
+        async function onPlay() {
+            if (video.paused || video.ended || !faceMatcher) {
+                return setTimeout(() => onPlay());
+            }
 
-    // QR Code Scanner
-    function onScanSuccess(decodedText, decodedResult) {
-        console.log(`Code matched = ${decodedText}`, decodedResult);
-        employeeIdInput.value = decodedText;
-        fetchEmployeeData(decodedText);
-        html5QrcodeScanner.clear(); // Stop scanning after success
-    }
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
+            
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(overlay, displaySize);
+            
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
 
-    function onScanFailure(error) {
-        // console.warn(`Code scan error = ${error}`);
-    }
+            if (resizedDetections.length > 0) {
+                const bestMatch = faceMatcher.findBestMatch(resizedDetections[0].descriptor);
+                
+                if (bestMatch && bestMatch.label !== 'unknown' && bestMatch.distance < 0.5) {
+                    const employee = JSON.parse(bestMatch.label);
+                    detectedEmployee = employee;
+                    updateEmployeeInfo(employee);
+                    
+                    const box = resizedDetections[0].detection.box;
+                    const drawBox = new faceapi.draw.DrawBox(box, { label: employee.name, boxColor: '#22c55e' });
+                    drawBox.draw(overlay);
 
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: {width: 250, height: 250} },
-        false
-    );
-    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+                } else {
+                    detectedEmployee = null;
+                    updateEmployeeInfo(null);
+                    const box = resizedDetections[0].detection.box;
+                    const drawBox = new faceapi.draw.DrawBox(box, { label: 'មិនស្គាល់', boxColor: '#ef4444' });
+                    drawBox.draw(overlay);
+                }
+            } else {
+                 detectedEmployee = null;
+                 updateEmployeeInfo(null);
+            }
 
-</script>
+            requestAnimationFrame(onPlay);
+        }
+
+        function showMessage(message, isSuccess = true) {
+            messageBox.textContent = message;
+            messageBox.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
+            messageBox.classList.add(isSuccess ? 'bg-green-500' : 'bg-red-500');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function recordAttendance(type) {
+            if (!detectedEmployee) {
+                showMessage('មិនមានបុគ្គលិកត្រូវបានរកឃើញទេ', false);
+                return;
+            }
+
+            // Prevent multiple clicks in a short time
+            const now = Date.now();
+            if (now - lastCheckTime < 5000) { // 5 second cooldown
+                showMessage('សូមរង់ចាំបន្តិចមុននឹងចុចម្តងទៀត', false);
+                return;
+            }
+            lastCheckTime = now;
+
+            const originalButtonText = type === 'check-in' ? checkInBtn.textContent : checkOutBtn.textContent;
+            const targetButton = type === 'check-in' ? checkInBtn : checkOutBtn;
+            targetButton.disabled = true;
+            targetButton.textContent = 'កំពុងដំណើរការ...';
+
+            const date = new Date();
+            const dateString = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+            const timeString = date.toLocaleTimeString('en-US', { hour12: false });
+            
+            // Determine shift
+            const hour = date.getHours();
+            const shift = hour < 13 ? 'វេនព្រឹក' : 'វេនរសៀល'; // Morning shift before 1 PM
+
+            const data = {
+                id: detectedEmployee.id,
+                type: type,
+                time: timeString,
+                date: dateString,
+                shift: shift
+            };
+
+            try {
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Important for simple POST to Apps Script
+                    cache: 'no-cache',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                // Since 'no-cors' mode doesn't allow reading the response, we assume success
+                const message = `${detectedEmployee.name} បាន ${type === 'check-in' ? 'Check In' : 'Check Out'} ដោយជោគជ័យ!`;
+                showMessage(message, true);
+                
+                // Briefly clear info to signal success
+                detectedEmployee = null;
+                updateEmployeeInfo(null);
+
+
+            } catch (error) {
+                console.error('Error recording attendance:', error);
+                showMessage('មានបញ្ហាក្នុងការកត់ត្រាវត្តមាន', false);
+            } finally {
+                targetButton.disabled = false;
+                targetButton.textContent = originalButtonText;
+            }
+        }
+        
+        async function main() {
+            await setupCamera();
+            video.play();
+            
+            const videoWidth = video.getBoundingClientRect().width;
+            const videoHeight = video.getBoundingClientRect().height;
+
+            overlay.width = videoWidth;
+            overlay.height = videoHeight;
+            
+            await loadModels();
+            
+            const labeledDescriptors = await getLabeledFaceDescriptors();
+            if (labeledDescriptors.length > 0) {
+                faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5); // 0.5 is the distance threshold
+                loader.style.display = 'none';
+                showMessage('ប្រព័ន្ធបានត្រៀមរួចរាល់', true);
+                onPlay();
+            } else {
+                 status.textContent = 'មិនអាចដំណើរការបាន';
+            }
+        }
+
+        checkInBtn.addEventListener('click', () => recordAttendance('check-in'));
+        checkOutBtn.addEventListener('click', () => recordAttendance('check-out'));
+        
+        window.addEventListener('resize', () => {
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(overlay, displaySize);
+        });
+
+        main();
+    </script>
 </body>
 </html>
