@@ -76,7 +76,7 @@
         const SPREADSHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT24HwHAK20Ua8hXyHZXE5z_iS6sZzT7W8aV6o_rI0l5B2nF6mG3pY7hW8dY9uO0jI-xL5qZ4rA0k3N/pub?gid=1943834380&single=true&output=csv';
 
         // 2. បញ្ចូល URL របស់ Web App ដែលបាន Deploy ពី Google Apps Script
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUanRMEOzxaWChaEFjYiONCTk6WGaERRkz7qhD02y3NVoj4l6O0ry2pvpSj4vu4-qs/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbycT7o6y8u4zH6jH5g7kP0lO9mJ1l2bB3cN4fS5g6a7vR8sK9xW0Z1y/exec';
         // -------------------
 
         const video = document.getElementById('video');
@@ -110,30 +110,38 @@
         }
 
         async function loadModels() {
-            // ** CHANGE: Load models from a local 'models' folder **
-            // Make sure you have downloaded the models and placed them in a 'models' folder
-            // next to your index.html file. See README.md for instructions.
             const MODEL_URL = './models';
             status.textContent = 'កំពុងដំណើរការម៉ូឌែល...';
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
-            ]);
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+                ]);
+            } catch (error) {
+                console.error("Error loading models:", error);
+                status.textContent = 'Error: រកមិនឃើញ Folder "models" ទេ។';
+                alert('រកមិនឃើញ Folder "models" ទេ។ សូមប្រាកដថាអ្នកបានទាញយក និងដាក់ Folder នោះនៅក្បែរไฟล์ index.html។');
+                throw error; // Stop execution
+            }
         }
 
         async function getLabeledFaceDescriptors() {
             status.textContent = 'កំពុងទាញយកទិន្នន័យបុគ្គលិក...';
             try {
-                const response = await fetch(SPREADSHEET_CSV_URL);
+                // ** CHANGE: Use a CORS proxy to prevent fetching errors **
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const response = await fetch(`${proxyUrl}${encodeURIComponent(SPREADSHEET_CSV_URL)}`);
+                if (!response.ok) {
+                    throw new Error(`Network response was not ok, status: ${response.status}`);
+                }
                 const csvText = await response.text();
-                const rows = csvText.split('\n').slice(8).map(row => row.trim()); // Skip header rows (E9:E starts at index 8)
+                const rows = csvText.split('\n').slice(8).map(row => row.trim());
                 
                 const labeledDescriptors = [];
                 for (const row of rows) {
                     const columns = row.split(',');
-                    // Column mapping based on the request
                     const id = columns[4]; // E
                     const name = columns[11]; // L
                     const gender = columns[13]; // N
@@ -141,7 +149,7 @@
                     
                     if (id && name && imageUrl) {
                          try {
-                            const img = await faceapi.fetchImage(`https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`);
+                            const img = await faceapi.fetchImage(`${proxyUrl}${encodeURIComponent(imageUrl)}`);
                             const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
                             if (detections) {
                                 const descriptor = new Float32Array(detections.descriptor);
@@ -166,7 +174,7 @@
             } catch (error) {
                 console.error("Error fetching or parsing spreadsheet data:", error);
                 status.textContent = 'Error: មិនអាចទាញទិន្នន័យបាន';
-                alert('បញ្ហាទាញទិន្នន័យបុគ្គលិក។ សូមពិនិត្យ URL របស់ CSV និងការតភ្ជាប់ Internet។');
+                alert('បញ្ហាទាញទិន្នន័យបុគ្គលិក។ សូមពិនិត្យ URL របស់ CSV នៅក្នុងកូដ និងប្រាកដថា Sheet ត្រូវបាន "Publish to web"។');
                 return [];
             }
         }
@@ -246,7 +254,6 @@
                 return;
             }
 
-            // Prevent multiple clicks in a short time
             const now = Date.now();
             if (now - lastCheckTime < 5000) { // 5 second cooldown
                 showMessage('សូមរង់ចាំបន្តិចមុននឹងចុចម្តងទៀត', false);
@@ -263,9 +270,8 @@
             const dateString = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
             const timeString = date.toLocaleTimeString('en-US', { hour12: false });
             
-            // Determine shift
             const hour = date.getHours();
-            const shift = hour < 13 ? 'វេនព្រឹក' : 'វេនរសៀល'; // Morning shift before 1 PM
+            const shift = hour < 13 ? 'វេនព្រឹក' : 'វេនរសៀល';
 
             const data = {
                 id: detectedEmployee.id,
@@ -278,7 +284,7 @@
             try {
                 const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Important for simple POST to Apps Script
+                    mode: 'no-cors', 
                     cache: 'no-cache',
                     headers: {
                         'Content-Type': 'application/json'
@@ -286,14 +292,11 @@
                     body: JSON.stringify(data)
                 });
                 
-                // Since 'no-cors' mode doesn't allow reading the response, we assume success
                 const message = `${detectedEmployee.name} បាន ${type === 'check-in' ? 'Check In' : 'Check Out'} ដោយជោគជ័យ!`;
                 showMessage(message, true);
                 
-                // Briefly clear info to signal success
                 detectedEmployee = null;
                 updateEmployeeInfo(null);
-
 
             } catch (error) {
                 console.error('Error recording attendance:', error);
@@ -305,6 +308,13 @@
         }
         
         async function main() {
+            // ** CHANGE: Check if faceapi library is loaded **
+            if (typeof faceapi === 'undefined') {
+                status.textContent = 'Error: មិនអាចដំណើរការ face-api.js បាន';
+                alert('Error: មិនអាចដំណើរការ Library សម្រាប់វិភាគផ្ទៃមុខបានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត រួចព្យាយាម Refresh ទំព័រ។');
+                return;
+            }
+
             await setupCamera();
             video.play();
             
@@ -314,11 +324,11 @@
             overlay.width = videoWidth;
             overlay.height = videoHeight;
             
-            await loadModels();
+            await loadModels(); // This will now stop if models are not found
             
             const labeledDescriptors = await getLabeledFaceDescriptors();
             if (labeledDescriptors.length > 0) {
-                faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5); // 0.5 is the distance threshold
+                faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
                 loader.style.display = 'none';
                 showMessage('ប្រព័ន្ធបានត្រៀមរួចរាល់', true);
                 onPlay();
@@ -327,15 +337,20 @@
             }
         }
 
+        // Delay main function start until face-api is likely loaded
+        window.onload = () => {
+             setTimeout(main, 500); // Give it half a second
+        };
+
         checkInBtn.addEventListener('click', () => recordAttendance('check-in'));
         checkOutBtn.addEventListener('click', () => recordAttendance('check-out'));
         
         window.addEventListener('resize', () => {
+            if (video.readyState === 0) return;
             const displaySize = { width: video.clientWidth, height: video.clientHeight };
             faceapi.matchDimensions(overlay, displaySize);
         });
 
-        main();
     </script>
 </body>
 </html>
