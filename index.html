@@ -4,312 +4,334 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធស្កេនវត្តមានដោយប្រើផ្ទៃមុខ</title>
-    <!-- Use Tailwind CSS for styling -->
+    <!-- Include Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Import face-api.js for face recognition -->
+    <!-- Include face-api.js for face recognition -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <!-- Import Google Fonts for Khmer text -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Kantumruy Pro', sans-serif;
-            background-color: #111827; /* bg-gray-900 */
-        }
-        /* Custom spinner animation */
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 4px solid #3b82f6; /* blue-500 */
-            width: 40px;
-            height: 40px;
+        /* Custom styles for the loading spinner and animations */
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spin 1s linear infinite;
             animation: spin 1s linear infinite;
         }
+
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        #video-container {
-            position: relative;
-            width: 720px;
-            height: 560px;
-        }
-        #overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
+        
+        #result-card {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
         }
     </style>
 </head>
-<body class="text-white flex items-center justify-center min-h-screen p-4">
+<body class="bg-gray-100 text-gray-800 font-sans">
+    <!-- Main container -->
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">ប្រព័ន្ធស្កេនវត្តមានដោយប្រើផ្ទៃមុខ</h1>
+            <p class="text-gray-500 mt-2">ផ្ទៀងផ្ទាត់អត្តសញ្ញាណជាមួយរូបថតនៅក្នុង Google Sheet</p>
+        </header>
 
-    <div id="app-container" class="w-full max-w-6xl mx-auto">
-        
-        <!-- Setup View: Ask for API Key -->
-        <div id="setup-view" class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-            <h1 class="text-3xl font-bold mb-4">ប្រព័ន្ធស្កេនវត្តមាន</h1>
-            <p class="text-gray-400 mb-6">សូមបញ្ចូល Google Sheets API Key ដើម្បីចាប់ផ្តើមទាញទិន្នន័យ។</p>
-            <div class="max-w-md mx-auto">
-                <input type="password" id="apiKeyInput" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="បញ្ចូល API Key នៅទីនេះ...">
-                <button id="startButton" class="w-full bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md mt-4 transition duration-300">ចាប់ផ្តើមប្រព័ន្ធ</button>
+        <!-- API Key Input Section -->
+        <div id="api-key-section" class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-xl font-semibold mb-3">ជំហានទី១៖ សូមបញ្ចូល Google Sheets API Key</h2>
+            <p class="text-sm text-gray-600 mb-4">ដើម្បីដំណើរការកម្មវិធីនេះ អ្នកត្រូវមាន API Key ពី Google Cloud Platform។ សូមប្រាកដថា Google Sheets API ត្រូវបានเปิดใช้งาน ហើយសន្លឹកទិន្នន័យរបស់អ្នកត្រូវបានកំណត់ជា "Public (Anyone with the link can view)"។</p>
+            <div class="flex items-center space-x-2">
+                <input type="password" id="api-key-input" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="បញ្ចូល API Key នៅទីនេះ">
+                <button id="submit-api-key" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500">បញ្ជូន</button>
             </div>
-            <p class="text-xs text-yellow-500 mt-4">
-                <strong>បញ្ជាក់៖</strong> API Key របស់អ្នកនឹងបង្ហាញនៅក្នុងកូដរបស់ Browser។ សូមប្រើប្រាស់ដោយការទទួលខុសត្រូវ និងកុំចែករំលែកជាសាធារណៈ។
-            </p>
-            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-blue-400 hover:underline mt-2 inline-block text-sm">របៀបបង្កើត API Key</a>
         </div>
 
-        <!-- Loading View -->
-        <div id="loading-view" class="hidden flex-col items-center justify-center text-center bg-gray-800 p-8 rounded-lg shadow-xl">
-            <div class="spinner mb-4"></div>
-            <p id="loading-text" class="text-xl">កំពុងរៀបចំប្រព័ន្ធ...</p>
-        </div>
-
-        <!-- Main Application View -->
-        <div id="main-view" class="hidden flex flex-col lg:flex-row gap-8">
-            <!-- Camera and Result Section -->
-            <div class="flex-1 bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col items-center">
-                <h2 class="text-2xl font-bold mb-4">ស្កេនផ្ទៃមុខ</h2>
-                <div id="video-container" class="bg-black rounded-md overflow-hidden shadow-inner">
-                    <video id="video" width="720" height="560" autoplay muted playsinline></video>
-                    <canvas id="overlay"></canvas>
+        <!-- Main Content Area -->
+        <main id="main-content" class="hidden">
+            <div class="flex flex-col md:flex-row gap-8">
+                <!-- Camera and Controls -->
+                <div class="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-md">
+                    <div class="relative w-full aspect-w-4 aspect-h-3">
+                        <video id="video" autoplay muted playsinline class="w-full h-full rounded-md bg-gray-900"></video>
+                        <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+                        <!-- Loading Overlay -->
+                        <div id="loading-overlay" class="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center rounded-md text-white z-10">
+                            <div class="loader w-16 h-16 border-4 border-gray-400 rounded-full mb-4"></div>
+                            <p id="loading-message" class="text-lg">កំពុងរៀបចំម៉ូដែល AI...</p>
+                        </div>
+                    </div>
+                    <button id="capture-btn" class="w-full mt-4 bg-green-600 text-white py-3 rounded-lg text-lg font-bold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-400" disabled>
+                        ស្កេនមុខ
+                    </button>
                 </div>
-            </div>
 
-            <!-- Matched Information Section -->
-            <div class="w-full lg:w-96 bg-gray-800 p-6 rounded-lg shadow-xl">
-                <h2 class="text-2xl font-bold mb-4 text-center">លទ្ធផលស្កេន</h2>
-                <div id="result-card" class="hidden bg-gray-700 rounded-lg p-4 text-center">
-                    <img id="result-photo" class="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-blue-500 object-cover" src="https://placehold.co/128x128/374151/FFFFFF?text=Photo" alt="រូបថតបុគ្គលិក">
-                    <h3 id="result-name" class="text-xl font-bold"></h3>
-                    <p id="result-id" class="text-gray-300"></p>
-                    <div class="text-left mt-4 space-y-2">
-                        <p><strong>ភេទ៖</strong> <span id="result-gender"></span></p>
-                        <p><strong>ក្រុម៖</strong> <span id="result-group"></span></p>
-                        <p><strong>ផ្នែក៖</strong> <span id="result-department"></span></p>
-                        <p><strong>ថ្នាក់៖</strong> <span id="result-class"></span></p>
-                        <p class="font-bold text-green-400"><strong>ម៉ោងស្កេន៖</strong> <span id="result-time"></span></p>
+                <!-- Results Display -->
+                <div class="w-full md:w-1/2">
+                    <div id="result-container" class="bg-white p-6 rounded-lg shadow-md min-h-[300px] flex items-center justify-center">
+                        <div id="instruction-text" class="text-center text-gray-500">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A5.975 5.975 0 0112 13a5.975 5.975 0 013 5.197M15 21a6 6 0 00-9-5.197" />
+                            </svg>
+                            <h3 class="mt-2 text-lg font-medium text-gray-900">រង់ចាំការស្កេន</h3>
+                            <p class="mt-1 text-sm text-gray-500">សូមតម្រង់មុខរបស់អ្នកឲ្យចំកាមេរ៉ា រួចចុចប៊ូតុង "ស្កេនមុខ"។</p>
+                        </div>
+                        <div id="result-card" class="hidden opacity-0 transform scale-95 w-full">
+                            <!-- Dynamic content will be inserted here -->
+                        </div>
                     </div>
                 </div>
-                <div id="no-result" class="flex items-center justify-center h-full text-gray-400">
-                    <p>សូមដាក់មុខរបស់លោកអ្នកនៅចំពីមុខកាមេរ៉ា...</p>
-                </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
-        const setupView = document.getElementById('setup-view');
-        const loadingView = document.getElementById('loading-view');
-        const mainView = document.getElementById('main-view');
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const startButton = document.getElementById('startButton');
-        const loadingText = document.getElementById('loading-text');
+        // DOM Elements
         const video = document.getElementById('video');
-        const overlay = document.getElementById('overlay');
-
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        const resultContainer = document.getElementById('result-container');
+        const instructionText = document.getElementById('instruction-text');
         const resultCard = document.getElementById('result-card');
-        const noResult = document.getElementById('no-result');
-        const resultPhoto = document.getElementById('result-photo');
-        const resultName = document.getElementById('result-name');
-        const resultId = document.getElementById('result-id');
-        const resultGender = document.getElementById('result-gender');
-        const resultGroup = document.getElementById('result-group');
-        const resultDepartment = document.getElementById('result-department');
-        const resultClass = document.getElementById('result-class');
-        const resultTime = document.getElementById('result-time');
-        
-        // --- Google Sheet Configuration ---
+        const apiKeySection = document.getElementById('api-key-section');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const submitApiKeyBtn = document.getElementById('submit-api-key');
+        const mainContent = document.getElementById('main-content');
+
+        // --- Configuration ---
         const SPREADSHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const SHEET_NAME = 'DIList';
-        // Define the full range to fetch all necessary columns
+        // The data range covers all necessary columns from E to AJ
         const DATA_RANGE = 'E9:AJ';
+        let API_KEY = '';
 
         let faceMatcher = null;
-        let detectionInterval = null;
+        let employeeData = [];
 
-        // Load all necessary models from face-api.js
-        async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-            loadingText.innerText = 'កំពុងទាញយក Model...';
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
-        }
-
-        // Start the webcam
-        async function startVideo() {
+        // Function to start the webcam
+        async function setupCamera() {
             try {
-                loadingText.innerText = 'កំពុងចាប់ផ្តើម​កាមេរ៉ា...';
-                const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 video.srcObject = stream;
             } catch (err) {
                 console.error("Error accessing webcam: ", err);
-                loadingText.innerText = 'Error: មិនអាចបើកកាមេរ៉ាបានទេ។ សូមអនុញ្ញាតឱ្យ Browser ប្រើប្រាស់កាមេរ៉ា។';
+                loadingMessage.innerText = "Error: មិនអាចចូលប្រើកាមេរ៉ាបានទេ។";
             }
         }
-        
-        // Extract URL from Google Sheet's IMAGE formula
-        function extractImageUrl(formula) {
-            if (!formula || typeof formula !== 'string') return null;
-            const match = formula.match(/=IMAGE\("([^"]+)"\)/);
-            return match ? match[1] : null;
+
+        // Function to load face-api.js models
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+            try {
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+            } catch (err) {
+                 console.error("Error loading models: ", err);
+                 loadingMessage.innerText = "Error: មិនអាចទាញយកម៉ូដែល AI បានទេ។";
+            }
         }
 
-        // Fetch data from Google Sheets and prepare labeled face descriptors
-        async function loadLabeledImages(apiKey) {
-            loadingText.innerText = 'កំពុងទាញយកទិន្នន័យពី Google Sheet...';
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!${DATA_RANGE}?key=${apiKey}`;
-            
+        // Function to fetch and process data from Google Sheets
+        async function fetchEmployeeData() {
+            loadingMessage.innerText = 'កំពុងទាញយកទិន្នន័យបុគ្គលិក...';
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!${DATA_RANGE}?key=${API_KEY}`;
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-
                 if (data.error) {
                     throw new Error(data.error.message);
                 }
-
-                const values = data.values;
-                if (!values || values.length === 0) {
-                    loadingText.innerText = 'Error: រកមិនឃើញទិន្នន័យក្នុង Sheet ទេ។';
-                    return null;
-                }
-
-                loadingText.innerText = `រកឃើញ ${values.length} នាក់។ កំពុងដំណើរការរូបថត...`;
-
-                const labeledFaceDescriptors = [];
-                let processedCount = 0;
                 
-                for (const row of values) {
-                    // Column mapping based on DATA_RANGE 'E9:AJ' (0-indexed)
-                    const id = row[0];        // Column E
-                    const group = row[2];     // Column G
-                    const name = row[7];      // Column L
-                    const gender = row[9];    // Column N
-                    const class_ = row[13];   // Column R
-                    const department = row[14]; // Column S
-                    const photoFormula = row[31]; // Column AJ
-
-                    const imageUrl = extractImageUrl(photoFormula);
-
-                    if (name && imageUrl) {
-                        try {
-                            const img = await faceapi.fetchImage(imageUrl);
-                            const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-                            if (detections) {
-                                const descriptors = [detections.descriptor];
-                                const labelData = {
-                                    _label: name,
-                                    _userData: { id, group, name, gender, class_, department, imageUrl }
-                                };
-                                labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(labelData._label, descriptors, labelData._userData));
-                            }
-                        } catch (e) {
-                            console.error(`Could not process image for ${name}:`, e);
-                        }
-                    }
-                    processedCount++;
-                    loadingText.innerText = `កំពុងដំណើរការរូបថត... (${processedCount}/${values.length})`;
-                }
-
-                if (labeledFaceDescriptors.length === 0) {
-                    loadingText.innerText = 'Error: មិនអាចដំណើរការរូបថតណាមួយបានទេ។ សូមពិនិត្យ Link រូបភាព។';
-                    return null;
-                }
+                // Column indices relative to the start column 'E' (index 0)
+                const COL_INDEX = {
+                    ID: 0,        // E
+                    GROUP: 2,     // G
+                    NAME: 7,      // L
+                    GENDER: 9,    // N
+                    CLASS: 13,    // R
+                    DEPARTMENT: 14, // S
+                    PHOTO_URL: 31 // AJ
+                };
                 
-                return new faceapi.FaceMatcher(labeledFaceDescriptors, 0.55);
+                employeeData = data.values
+                    .map(row => {
+                        const photoCell = row[COL_INDEX.PHOTO_URL] || '';
+                        // Extract URL from =IMAGE("...") formula
+                        const urlMatch = photoCell.match(/="([^"]+)"/);
+                        const photoUrl = urlMatch ? urlMatch[1] : null;
 
-            } catch (err) {
-                console.error("Error fetching sheet data: ", err);
-                loadingText.innerText = `Error: ${err.message}. សូមពិនិត្យ API Key ឬ Sheet Permissions។`;
-                return null;
+                        return {
+                            id: row[COL_INDEX.ID] || 'N/A',
+                            name: row[COL_INDEX.NAME] || 'N/A',
+                            gender: row[COL_INDEX.GENDER] || 'N/A',
+                            class: row[COL_INDEX.CLASS] || 'N/A',
+                            group: row[COL_INDEX.GROUP] || 'N/A',
+                            department: row[COL_INDEX.DEPARTMENT] || 'N/A',
+                            photoUrl: photoUrl
+                        };
+                    })
+                    .filter(employee => employee.photoUrl && employee.name !== 'N/A'); // Filter out employees without a photo URL
+                
+                if (employeeData.length === 0) {
+                    loadingMessage.innerText = "រកមិនឃើញទិន្នន័យបុគ្គលិក ឬរូបថតទេ។";
+                }
+
+            } catch (error) {
+                console.error('Error fetching Google Sheets data:', error);
+                loadingMessage.innerText = "Error: فشل في جلب البيانات. تحقق من مفتاح API ومعرف الورقة وإعدادات المشاركة.";
+                alert(`Error fetching data: ${error.message}. \nPlease check your API Key, Sheet ID, and that the sheet is public.`);
             }
         }
-        
-        // Main function to initialize the system
-        startButton.addEventListener('click', async () => {
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                alert('សូមបញ្ចូល Google Sheets API Key!');
-                return;
-            }
-            
-            setupView.classList.add('hidden');
-            loadingView.classList.remove('hidden');
-            loadingView.classList.add('flex');
 
-            await loadModels();
-            faceMatcher = await loadLabeledImages(apiKey);
+        // Function to create face matcher from employee photos
+        async function createFaceMatcher() {
+            if (employeeData.length === 0) return;
             
-            if (faceMatcher) {
-                await startVideo();
+            loadingMessage.innerText = `កំពុងរៀបចំទិន្នន័យផ្ទៃមុខ (${employeeData.length} នាក់)...`;
+            const labeledFaceDescriptors = [];
+            let processedCount = 0;
+
+            for (const employee of employeeData) {
+                processedCount++;
+                loadingMessage.innerText = `កំពុងដំណើរការ ${processedCount}/${employeeData.length}: ${employee.name}`;
+                try {
+                    // Using a CORS proxy to prevent cross-origin issues. 
+                    // Note: Public proxies are for development only. For production, use your own.
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(employee.photoUrl)}`;
+                    const img = await faceapi.fetchImage(proxyUrl);
+                    
+                    const detections = await faceapi.detectSingleFace(img)
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+                        
+                    if (detections) {
+                        const descriptors = [detections.descriptor];
+                        labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(employee.id, descriptors));
+                    } else {
+                        console.warn(`Could not detect a face for ${employee.name}`);
+                    }
+                } catch (e) {
+                    console.error(`Error processing image for ${employee.name}:`, e);
+                }
+            }
+
+            if(labeledFaceDescriptors.length > 0){
+                faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); // 0.5 is the distance threshold
+                loadingOverlay.style.display = 'none';
+                captureBtn.disabled = false;
             } else {
-                 // Error occurred, show setup again to allow re-entry of key
-                 setTimeout(() => {
-                    loadingView.classList.add('hidden');
-                    loadingView.classList.remove('flex');
-                    setupView.classList.remove('hidden');
-                }, 3000);
+                loadingMessage.innerText = "Error: មិនអាចដំណើរការរូបភាពណាមួយបានទេ។ សូមពិនិត្យ URL រូបភាព។";
             }
-        });
+        }
 
-        // Event listener for when the video starts playing
-        video.addEventListener('play', () => {
+        // Function to display match results
+        function displayResult(result) {
+            instructionText.style.display = 'none';
+            resultCard.classList.remove('hidden');
+
+            let content = '';
+            if (result) {
+                // Find full employee details from the original array
+                const employee = employeeData.find(emp => emp.id === result.label);
+                
+                content = `
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-32 h-32 mb-4">
+                            <img src="${employee.photoUrl}" alt="Employee Photo" class="rounded-full w-full h-full object-cover border-4 border-green-500">
+                        </div>
+                        <h2 class="text-2xl font-bold text-green-700">ផ្ទៀងផ្ទាត់ជោគជ័យ</h2>
+                        <p class="text-xl font-semibold mt-2">${employee.name}</p>
+                        <p class="text-gray-600">ID: ${employee.id}</p>
+                        <div class="w-full mt-4 text-left border-t pt-4 space-y-2">
+                           <p><strong>ភេទ:</strong> ${employee.gender}</p>
+                           <p><strong>ក្រុម:</strong> ${employee.group}</p>
+                           <p><strong>ផ្នែក:</strong> ${employee.department}</p>
+                           <p><strong>ថ្នាក់:</strong> ${employee.class}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                content = `
+                    <div class="flex flex-col items-center text-center">
+                        <div class="w-32 h-32 mb-4 flex items-center justify-center bg-gray-200 rounded-full border-4 border-red-500">
+                             <svg class="w-16 h-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-red-600">រកមិនឃើញ</h2>
+                        <p class="text-gray-600 mt-2">មិនអាចផ្ទៀងផ្ទាត់ផ្ទៃមុខបានទេ។ សូមព្យាយាមម្តងទៀត។</p>
+                    </div>
+                `;
+            }
+
+            resultCard.innerHTML = content;
+            resultCard.style.opacity = '0';
+            resultCard.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                resultCard.style.opacity = '1';
+                resultCard.style.transform = 'scale(1)';
+            }, 100);
+        }
+
+        // Event listener for the capture button
+        captureBtn.addEventListener('click', async () => {
             if (!faceMatcher) return;
 
-            loadingView.classList.add('hidden');
-            mainView.classList.remove('hidden');
-            mainView.classList.add('flex');
+            // Clear previous results
+            resultCard.style.opacity = '0';
+            setTimeout(() => {
+                displayResult(null); // Show 'Not Found' initially
+                resultCard.style.opacity = '1';
+            }, 300);
+
+            const detectionCanvas = faceapi.createCanvasFromMedia(video);
+            const displaySize = { width: video.clientWidth, height: video.clientHeight };
+            faceapi.matchDimensions(detectionCanvas, displaySize);
             
-            // Adjust canvas size to match video display size
-            const displaySize = { width: video.width, height: video.height };
-            faceapi.matchDimensions(overlay, displaySize);
-
-            let lastMatchTime = 0;
-            let lastMatchName = null;
-            const displayDelay = 3000; // 3 seconds delay before showing same person again
+            const detections = await faceapi.detectAllFaces(video)
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+                
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
             
-            detectionInterval = setInterval(async () => {
-                const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                
-                overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
-                faceapi.draw.drawDetections(overlay, resizedDetections);
+            if (resizedDetections.length > 0) {
+                const bestMatch = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor))
+                                                 .sort((a,b) => a.distance - b.distance)[0];
 
-                const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                
-                if (results.length > 0 && results[0].label !== 'unknown') {
-                    const bestMatch = results[0];
-                    const currentTime = Date.now();
-                    
-                    if (bestMatch.label !== lastMatchName || (currentTime - lastMatchTime > displayDelay)) {
-                        lastMatchName = bestMatch.label;
-                        lastMatchTime = currentTime;
-
-                        const userData = faceMatcher.labeledDescriptors.find(ld => ld.label === bestMatch.label).userData;
-
-                        resultPhoto.src = userData.imageUrl;
-                        resultName.innerText = userData.name;
-                        resultId.innerText = `អត្តលេខ៖ ${userData.id || 'N/A'}`;
-                        resultGender.innerText = userData.gender || 'N/A';
-                        resultGroup.innerText = userData.group || 'N/A';
-                        resultDepartment.innerText = userData.department || 'N/A';
-                        resultClass.innerText = userData.class_ || 'N/A';
-                        resultTime.innerText = new Date().toLocaleTimeString('en-GB');
-
-                        resultCard.classList.remove('hidden');
-                        noResult.classList.add('hidden');
-                    }
+                if (bestMatch && bestMatch.label !== 'unknown') {
+                    displayResult(bestMatch);
                 } else {
-                    lastMatchName = null; // Reset if no face or unknown face is detected
-                    // Optionally hide the card after a while if no face is detected
+                    displayResult(null);
                 }
-            }, 200);
+            } else {
+                displayResult(null);
+            }
         });
 
+        // Event listener for API Key submission
+        submitApiKeyBtn.addEventListener('click', async () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                API_KEY = key;
+                apiKeySection.style.display = 'none';
+                mainContent.classList.remove('hidden');
+                
+                // Initialize the application
+                await loadModels();
+                await setupCamera();
+                await fetchEmployeeData();
+                await createFaceMatcher();
+            } else {
+                alert("សូមបញ្ចូល API Key ជាមុនសិន។");
+            }
+        });
     </script>
 </body>
 </html>
