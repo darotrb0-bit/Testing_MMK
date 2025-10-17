@@ -4,362 +4,310 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធស្កេនវត្តមានដោយប្រើផ្ទៃមុខ</title>
+    <!-- Use Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import face-api.js for face recognition -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Koulen&family=Moul&display=swap" rel="stylesheet">
+    <!-- Import Google Fonts for Khmer text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Koulen', sans-serif;
+            font-family: 'Kantumruy Pro', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
         }
-        .kh-moul {
-            font-family: 'Moul', serif;
-        }
-        /* Custom loader style */
-        .loader {
-            border: 8px solid #f3f3f3;
+        /* Custom spinner animation */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
-            border-top: 8px solid #3498db;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
+            border-top: 4px solid #3b82f6; /* blue-500 */
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        #video-container {
+            position: relative;
+            width: 720px;
+            height: 560px;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+<body class="text-white flex items-center justify-center min-h-screen p-4">
 
-    <div id="app-container" class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl p-6 md:p-8">
-        <h1 class="text-3xl md:text-4xl font-bold text-center mb-2 text-blue-600 kh-moul">ប្រព័ន្ធស្កេនវត្តមាន</h1>
-        <p class="text-center text-gray-500 mb-6">ផ្ទៀងផ្ទាត់​ដោយ​ប្រើ​បច្ចេកវិទ្យា​សម្គាល់​ផ្ទៃមុខ</p>
-
-        <!-- API Key Input -->
-        <div id="api-key-section" class="mb-4 text-center">
-            <p class="mb-2">សូម​បញ្ចូល Google Sheets API Key របស់អ្នក៖</p>
-            <input type="password" id="apiKeyInput" class="border rounded-lg px-4 py-2 w-full max-w-md mx-auto" placeholder="API Key">
-            <button id="start-app-btn" class="mt-3 bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300">
-                ចាប់ផ្តើម
-            </button>
-        </div>
+    <div id="app-container" class="w-full max-w-6xl mx-auto">
         
-        <!-- Main Content -->
-        <div id="main-content" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                <!-- Camera Feed -->
-                <div class="relative w-full aspect-square bg-gray-200 rounded-xl overflow-hidden shadow-lg border-4 border-gray-300">
-                    <video id="video" width="100%" height="100%" autoplay muted playsinline class="absolute top-0 left-0 w-full h-full object-cover"></video>
-                    <canvas id="canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
-                    <div id="loading-spinner" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
-                        <div class="loader mb-4"></div>
-                        <p id="loading-text" class="text-lg">កំពុង​ដំណើរការ​ម៉ូឌែល...</p>
+        <!-- Setup View: Ask for API Key -->
+        <div id="setup-view" class="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+            <h1 class="text-3xl font-bold mb-4">ប្រព័ន្ធស្កេនវត្តមាន</h1>
+            <p class="text-gray-400 mb-6">សូមបញ្ចូល Google Sheets API Key ដើម្បីចាប់ផ្តើមទាញទិន្នន័យ។</p>
+            <div class="max-w-md mx-auto">
+                <input type="password" id="apiKeyInput" class="w-full bg-gray-700 text-white p-3 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="បញ្ចូល API Key នៅទីនេះ...">
+                <button id="startButton" class="w-full bg-blue-600 hover:bg-blue-700 font-bold py-3 px-4 rounded-md mt-4 transition duration-300">ចាប់ផ្តើមប្រព័ន្ធ</button>
+            </div>
+            <p class="text-xs text-yellow-500 mt-4">
+                <strong>បញ្ជាក់៖</strong> API Key របស់អ្នកនឹងបង្ហាញនៅក្នុងកូដរបស់ Browser។ សូមប្រើប្រាស់ដោយការទទួលខុសត្រូវ និងកុំចែករំលែកជាសាធារណៈ។
+            </p>
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-blue-400 hover:underline mt-2 inline-block text-sm">របៀបបង្កើត API Key</a>
+        </div>
+
+        <!-- Loading View -->
+        <div id="loading-view" class="hidden flex-col items-center justify-center text-center bg-gray-800 p-8 rounded-lg shadow-xl">
+            <div class="spinner mb-4"></div>
+            <p id="loading-text" class="text-xl">កំពុងរៀបចំប្រព័ន្ធ...</p>
+        </div>
+
+        <!-- Main Application View -->
+        <div id="main-view" class="hidden flex flex-col lg:flex-row gap-8">
+            <!-- Camera and Result Section -->
+            <div class="flex-1 bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col items-center">
+                <h2 class="text-2xl font-bold mb-4">ស្កេនផ្ទៃមុខ</h2>
+                <div id="video-container" class="bg-black rounded-md overflow-hidden shadow-inner">
+                    <video id="video" width="720" height="560" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                </div>
+            </div>
+
+            <!-- Matched Information Section -->
+            <div class="w-full lg:w-96 bg-gray-800 p-6 rounded-lg shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 text-center">លទ្ធផលស្កេន</h2>
+                <div id="result-card" class="hidden bg-gray-700 rounded-lg p-4 text-center">
+                    <img id="result-photo" class="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-blue-500 object-cover" src="https://placehold.co/128x128/374151/FFFFFF?text=Photo" alt="រូបថតបុគ្គលិក">
+                    <h3 id="result-name" class="text-xl font-bold"></h3>
+                    <p id="result-id" class="text-gray-300"></p>
+                    <div class="text-left mt-4 space-y-2">
+                        <p><strong>ភេទ៖</strong> <span id="result-gender"></span></p>
+                        <p><strong>ក្រុម៖</strong> <span id="result-group"></span></p>
+                        <p><strong>ផ្នែក៖</strong> <span id="result-department"></span></p>
+                        <p><strong>ថ្នាក់៖</strong> <span id="result-class"></span></p>
+                        <p class="font-bold text-green-400"><strong>ម៉ោងស្កេន៖</strong> <span id="result-time"></span></p>
                     </div>
                 </div>
-
-                <!-- Profile Information -->
-                <div id="profile-card" class="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-2xl shadow-lg transition-all duration-500 transform scale-95 opacity-0">
-                    <div class="text-center">
-                        <img id="profile-image" src="https://placehold.co/150x150/E2E8F0/A0AEC0?text=No+Match" class="w-36 h-36 rounded-full mx-auto mb-4 border-4 border-white shadow-md">
-                        <h2 id="profile-name" class="text-2xl font-bold text-gray-800">មិនទាន់ស្គាល់</h2>
-                        <p id="profile-id" class="text-gray-500 font-mono">ID: N/A</p>
-                    </div>
-                    <div class="mt-6 border-t border-gray-200 pt-4">
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                            <strong class="text-gray-500">ភេទ៖</strong>
-                            <span id="profile-gender">N/A</span>
-                            <strong class="text-gray-500">ក្រុម៖</strong>
-                            <span id="profile-group">N/A</span>
-                            <strong class="text-gray-500">ថ្នាក់៖</strong>
-                            <span id="profile-class">N/A</span>
-                            <strong class="text-gray-500">ផ្នែក៖</strong>
-                            <span id="profile-department">N/A</span>
-                        </div>
-                    </div>
-                     <div id="status-message" class="mt-6 text-center font-bold text-lg p-3 rounded-lg"></div>
+                <div id="no-result" class="flex items-center justify-center h-full text-gray-400">
+                    <p>សូមដាក់មុខរបស់លោកអ្នកនៅចំពីមុខកាមេរ៉ា...</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const loadingText = document.getElementById('loading-text');
-        
-        const apiKeySection = document.getElementById('api-key-section');
-        const mainContent = document.getElementById('main-content');
-        const startAppBtn = document.getElementById('start-app-btn');
+        const setupView = document.getElementById('setup-view');
+        const loadingView = document.getElementById('loading-view');
+        const mainView = document.getElementById('main-view');
         const apiKeyInput = document.getElementById('apiKeyInput');
+        const startButton = document.getElementById('startButton');
+        const loadingText = document.getElementById('loading-text');
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
 
-        const profileCard = document.getElementById('profile-card');
-        const profileImage = document.getElementById('profile-image');
-        const profileName = document.getElementById('profile-name');
-        const profileId = document.getElementById('profile-id');
-        const profileGender = document.getElementById('profile-gender');
-        const profileGroup = document.getElementById('profile-group');
-        const profileClass = document.getElementById('profile-class');
-        const profileDepartment = document.getElementById('profile-department');
-        const statusMessage = document.getElementById('status-message');
+        const resultCard = document.getElementById('result-card');
+        const noResult = document.getElementById('no-result');
+        const resultPhoto = document.getElementById('result-photo');
+        const resultName = document.getElementById('result-name');
+        const resultId = document.getElementById('result-id');
+        const resultGender = document.getElementById('result-gender');
+        const resultGroup = document.getElementById('result-group');
+        const resultDepartment = document.getElementById('result-department');
+        const resultClass = document.getElementById('result-class');
+        const resultTime = document.getElementById('result-time');
         
         // --- Google Sheet Configuration ---
         const SPREADSHEET_ID = '1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc';
         const SHEET_NAME = 'DIList';
-        // Define ranges
-        const RANGES = [
-            'E9:E', // ID
-            'G9:G', // Group
-            'L9:L', // Name
-            'N9:N', // Gender
-            'R9:R', // Class
-            'S9:S', // Department
-            'AJ9:AJ', // Image Link
-        ];
+        // Define the full range to fetch all necessary columns
+        const DATA_RANGE = 'E9:AJ';
 
-        let labeledFaceDescriptors = null;
-        let staffData = [];
         let faceMatcher = null;
-        let GOOGLE_API_KEY = '';
+        let detectionInterval = null;
 
-        // Function to load all face-api models
+        // Load all necessary models from face-api.js
         async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.9/model/';
+            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+            loadingText.innerText = 'កំពុងទាញយក Model...';
             await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
                 faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
         }
 
-        // Function to extract URL from Google Sheet's IMAGE function
-        function extractImageUrl(imageFunction) {
+        // Start the webcam
+        async function startVideo() {
             try {
-                const url = imageFunction.match(/="([^"]+)"/)[1];
-                // Use a CORS proxy for Google User Content images
-                return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`;
-            } catch (e) {
-                return null;
+                loadingText.innerText = 'កំពុងចាប់ផ្តើម​កាមេរ៉ា...';
+                const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                loadingText.innerText = 'Error: មិនអាចបើកកាមេរ៉ាបានទេ។ សូមអនុញ្ញាតឱ្យ Browser ប្រើប្រាស់កាមេរ៉ា។';
             }
         }
+        
+        // Extract URL from Google Sheet's IMAGE formula
+        function extractImageUrl(formula) {
+            if (!formula || typeof formula !== 'string') return null;
+            const match = formula.match(/=IMAGE\("([^"]+)"\)/);
+            return match ? match[1] : null;
+        }
 
-        // Function to fetch data and create face descriptors
-        async function getLabeledFaceDescriptions() {
-            loadingText.innerText = 'កំពុង​ទាញ​ទិន្នន័យ​បុគ្គលិក...';
-            
-            const rangesQuery = RANGES.map(range => `ranges=${SHEET_NAME}!${range}`).join('&');
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?${rangesQuery}&key=${GOOGLE_API_KEY}`;
+        // Fetch data from Google Sheets and prepare labeled face descriptors
+        async function loadLabeledImages(apiKey) {
+            loadingText.innerText = 'កំពុងទាញយកទិន្នន័យពី Google Sheet...';
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!${DATA_RANGE}?key=${apiKey}`;
             
             try {
                 const response = await fetch(url);
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(`Google Sheets API Error: ${error.error.message}`);
-                }
                 const data = await response.json();
-                const valueRanges = data.valueRanges;
 
-                // Combine data into a single staff list
-                const numRows = valueRanges[0]?.values?.length || 0;
-                for (let i = 0; i < numRows; i++) {
-                    staffData.push({
-                        id: valueRanges[0]?.values[i]?.[0] || 'N/A',
-                        group: valueRanges[1]?.values[i]?.[0] || 'N/A',
-                        name: valueRanges[2]?.values[i]?.[0] || 'N/A',
-                        gender: valueRanges[3]?.values[i]?.[0] || 'N/A',
-                        class: valueRanges[4]?.values[i]?.[0] || 'N/A',
-                        department: valueRanges[5]?.values[i]?.[0] || 'N/A',
-                        imageUrl: valueRanges[6]?.values[i]?.[0] ? extractImageUrl(valueRanges[6].values[i][0]) : null,
-                    });
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                const values = data.values;
+                if (!values || values.length === 0) {
+                    loadingText.innerText = 'Error: រកមិនឃើញទិន្នន័យក្នុង Sheet ទេ។';
+                    return null;
+                }
+
+                loadingText.innerText = `រកឃើញ ${values.length} នាក់។ កំពុងដំណើរការរូបថត...`;
+
+                const labeledFaceDescriptors = [];
+                let processedCount = 0;
+                
+                for (const row of values) {
+                    // Column mapping based on DATA_RANGE 'E9:AJ' (0-indexed)
+                    const id = row[0];        // Column E
+                    const group = row[2];     // Column G
+                    const name = row[7];      // Column L
+                    const gender = row[9];    // Column N
+                    const class_ = row[13];   // Column R
+                    const department = row[14]; // Column S
+                    const photoFormula = row[31]; // Column AJ
+
+                    const imageUrl = extractImageUrl(photoFormula);
+
+                    if (name && imageUrl) {
+                        try {
+                            const img = await faceapi.fetchImage(imageUrl);
+                            const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                            if (detections) {
+                                const descriptors = [detections.descriptor];
+                                const labelData = {
+                                    _label: name,
+                                    _userData: { id, group, name, gender, class_, department, imageUrl }
+                                };
+                                labeledFaceDescriptors.push(new faceapi.LabeledFaceDescriptors(labelData._label, descriptors, labelData._userData));
+                            }
+                        } catch (e) {
+                            console.error(`Could not process image for ${name}:`, e);
+                        }
+                    }
+                    processedCount++;
+                    loadingText.innerText = `កំពុងដំណើរការរូបថត... (${processedCount}/${values.length})`;
+                }
+
+                if (labeledFaceDescriptors.length === 0) {
+                    loadingText.innerText = 'Error: មិនអាចដំណើរការរូបថតណាមួយបានទេ។ សូមពិនិត្យ Link រូបភាព។';
+                    return null;
                 }
                 
-                let loadedCount = 0;
-                loadingText.innerText = `កំពុង​វិភាគ​រូបថត៖ ${loadedCount}/${staffData.length}`;
+                return new faceapi.FaceMatcher(labeledFaceDescriptors, 0.55);
 
-                const descriptors = await Promise.all(
-                    staffData.map(async (staff, index) => {
-                        if (!staff.imageUrl || !staff.name) return null;
-                        
-                        try {
-                            const img = await faceapi.fetchImage(staff.imageUrl);
-                            const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-                            
-                            loadedCount++;
-                            loadingText.innerText = `កំពុង​វិភាគ​រូបថត៖ ${loadedCount}/${staffData.length}`;
-
-                            if (!detections) return null;
-                            
-                            return new faceapi.LabeledFaceDescriptors(staff.name, [detections.descriptor]);
-                        } catch (e) {
-                            console.error(`Error loading image for ${staff.name}:`, e);
-                            loadedCount++;
-                            loadingText.innerText = `កំពុង​វិភាគ​រូបថត៖ ${loadedCount}/${staffData.length}`;
-                            return null;
-                        }
-                    })
-                );
-                
-                return descriptors.filter(d => d !== null);
-
-            } catch (error) {
-                alert(`បរាជ័យ​ក្នុង​ការ​ទាញ​ទិន្នន័យ៖ ${error.message}\nសូម​ពិនិត្យ API Key ឬ ការ​ចែករំលែក Sheet។`);
-                loadingSpinner.style.display = 'none';
+            } catch (err) {
+                console.error("Error fetching sheet data: ", err);
+                loadingText.innerText = `Error: ${err.message}. សូមពិនិត្យ API Key ឬ Sheet Permissions។`;
                 return null;
             }
         }
-
-        // Function to start the webcam
-        function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: {} })
-                .then(stream => {
-                    video.srcObject = stream;
-                })
-                .catch(err => {
-                    console.error("Error accessing webcam: ", err);
-                    alert("មិន​អាច​បើក​កាមេរ៉ា​បាន​ទេ។ សូម​អនុញ្ញាត​ឲ្យ​ប្រើប្រាស់​កាមេរ៉ា។");
-                });
-        }
-
-        function showProfile(staff) {
-            profileCard.classList.remove('scale-95', 'opacity-0');
-            profileCard.classList.add('scale-100', 'opacity-100');
-            
-            profileImage.src = staff.imageUrl;
-            profileImage.onerror = () => { profileImage.src = 'https://placehold.co/150x150/E2E8F0/A0AEC0?text=Error'; };
-            profileName.innerText = staff.name;
-            profileId.innerText = `ID: ${staff.id}`;
-            profileGender.innerText = staff.gender;
-            profileGroup.innerText = staff.group;
-            profileClass.innerText = staff.class;
-            profileDepartment.innerText = staff.department;
-        }
-
-        function resetProfile() {
-            profileCard.classList.add('scale-95', 'opacity-0');
-            profileCard.classList.remove('scale-100', 'opacity-100');
-
-            setTimeout(() => {
-                profileImage.src = 'https://placehold.co/150x150/E2E8F0/A0AEC0?text=No+Match';
-                profileName.innerText = 'មិនទាន់ស្គាល់';
-                profileId.innerText = 'ID: N/A';
-                profileGender.innerText = 'N/A';
-                profileGroup.innerText = 'N/A';
-                profileClass.innerText = 'N/A';
-                profileDepartment.innerText = 'N/A';
-            }, 500);
-        }
         
-        function updateStatus(type, message) {
-            statusMessage.textContent = message;
-            statusMessage.classList.remove('bg-green-200', 'text-green-800', 'bg-red-200', 'text-red-800', 'bg-yellow-200', 'text-yellow-800');
-            if (type === 'success') {
-                statusMessage.classList.add('bg-green-200', 'text-green-800');
-            } else if (type === 'error') {
-                 statusMessage.classList.add('bg-red-200', 'text-red-800');
-            } else { // info
-                 statusMessage.classList.add('bg-yellow-200', 'text-yellow-800');
-            }
-        }
-        
-        let recognitionTimeout;
-
-        // Main event listener for when the video starts playing
-        video.addEventListener('play', () => {
-            const context = canvas.getContext('2d');
-            const displaySize = { width: video.width, height: video.height };
-            faceapi.matchDimensions(canvas, displaySize);
-
-            let lastDetectedName = null;
-            let noFaceCounter = 0;
-
-            setInterval(async () => {
-                if (!faceMatcher) return;
-
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors();
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                
-                context.clearRect(0, 0, canvas.width, canvas.height);
-
-                if (resizedDetections.length > 0) {
-                    noFaceCounter = 0; // Reset counter if a face is seen
-                    const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
-                    
-                    let foundMatch = false;
-                    results.forEach((result, i) => {
-                        const box = resizedDetections[i].detection.box;
-                        const bestMatch = result.toString();
-                        const isUnknown = bestMatch.includes('unknown');
-                        
-                        const drawBox = new faceapi.draw.DrawBox(box, { 
-                            label: isUnknown ? 'មិនស្គាល់' : result.label,
-                            boxColor: isUnknown ? 'red' : 'green'
-                        });
-                        drawBox.draw(canvas);
-
-                        if (!isUnknown) {
-                            foundMatch = true;
-                            if (lastDetectedName !== result.label) {
-                                clearTimeout(recognitionTimeout);
-                                recognitionTimeout = setTimeout(() => {
-                                    const matchedStaff = staffData.find(s => s.name === result.label);
-                                    if (matchedStaff) {
-                                        showProfile(matchedStaff);
-                                        updateStatus('success', 'ស្កេនបានជោគជ័យ!');
-                                        lastDetectedName = result.label;
-                                        // Optional: Play a sound
-                                        new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_92080aea33.mp3').play();
-                                    }
-                                }, 300); // Delay to prevent flickering
-                            }
-                        }
-                    });
-                     if (!foundMatch && lastDetectedName) {
-                        clearTimeout(recognitionTimeout);
-                        updateStatus('error', 'មិនស្គាល់បុគ្គលនេះ');
-                        resetProfile();
-                        lastDetectedName = null;
-                    }
-                    if(!foundMatch){
-                         updateStatus('info', 'សូម​ដាក់​មុខ​ឲ្យ​ចំ​កាមេរ៉ា');
-                    }
-                } else {
-                    noFaceCounter++;
-                    // If no face is detected for a short period, reset the profile
-                    if (noFaceCounter > 10 && lastDetectedName) {
-                        clearTimeout(recognitionTimeout);
-                        resetProfile();
-                        updateStatus('info', 'រកមិនឃើញផ្ទៃមុខ');
-                        lastDetectedName = null;
-                    }
-                }
-            }, 200);
-        });
-        
-        // Start button logic
-        startAppBtn.addEventListener('click', async () => {
-            GOOGLE_API_KEY = apiKeyInput.value.trim();
-            if (!GOOGLE_API_KEY) {
-                alert('សូម​បញ្ចូល API Key ជាមុនសិន។');
+        // Main function to initialize the system
+        startButton.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('សូមបញ្ចូល Google Sheets API Key!');
                 return;
             }
             
-            apiKeySection.style.display = 'none';
-            mainContent.classList.remove('hidden');
+            setupView.classList.add('hidden');
+            loadingView.classList.remove('hidden');
+            loadingView.classList.add('flex');
 
-            // --- Start the application ---
             await loadModels();
-            labeledFaceDescriptors = await getLabeledFaceDescriptions();
+            faceMatcher = await loadLabeledImages(apiKey);
             
-            if (labeledFaceDescriptors && labeledFaceDescriptors.length > 0) {
-                faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.55); // Adjust threshold if needed
-                loadingSpinner.style.display = 'none';
-                startVideo();
-                resetProfile();
-                updateStatus('info', 'ប្រព័ន្ធ​បាន​រួចរាល់');
+            if (faceMatcher) {
+                await startVideo();
             } else {
-                 loadingText.innerText = 'បរាជ័យ​ក្នុង​ការ​ដំណើរការ​ទិន្នន័យ។';
+                 // Error occurred, show setup again to allow re-entry of key
+                 setTimeout(() => {
+                    loadingView.classList.add('hidden');
+                    loadingView.classList.remove('flex');
+                    setupView.classList.remove('hidden');
+                }, 3000);
             }
+        });
+
+        // Event listener for when the video starts playing
+        video.addEventListener('play', () => {
+            if (!faceMatcher) return;
+
+            loadingView.classList.add('hidden');
+            mainView.classList.remove('hidden');
+            mainView.classList.add('flex');
+            
+            // Adjust canvas size to match video display size
+            const displaySize = { width: video.width, height: video.height };
+            faceapi.matchDimensions(overlay, displaySize);
+
+            let lastMatchTime = 0;
+            let lastMatchName = null;
+            const displayDelay = 3000; // 3 seconds delay before showing same person again
+            
+            detectionInterval = setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                
+                overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+                faceapi.draw.drawDetections(overlay, resizedDetections);
+
+                const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
+                
+                if (results.length > 0 && results[0].label !== 'unknown') {
+                    const bestMatch = results[0];
+                    const currentTime = Date.now();
+                    
+                    if (bestMatch.label !== lastMatchName || (currentTime - lastMatchTime > displayDelay)) {
+                        lastMatchName = bestMatch.label;
+                        lastMatchTime = currentTime;
+
+                        const userData = faceMatcher.labeledDescriptors.find(ld => ld.label === bestMatch.label).userData;
+
+                        resultPhoto.src = userData.imageUrl;
+                        resultName.innerText = userData.name;
+                        resultId.innerText = `អត្តលេខ៖ ${userData.id || 'N/A'}`;
+                        resultGender.innerText = userData.gender || 'N/A';
+                        resultGroup.innerText = userData.group || 'N/A';
+                        resultDepartment.innerText = userData.department || 'N/A';
+                        resultClass.innerText = userData.class_ || 'N/A';
+                        resultTime.innerText = new Date().toLocaleTimeString('en-GB');
+
+                        resultCard.classList.remove('hidden');
+                        noResult.classList.add('hidden');
+                    }
+                } else {
+                    lastMatchName = null; // Reset if no face or unknown face is detected
+                    // Optionally hide the card after a while if no face is detected
+                }
+            }, 200);
         });
 
     </script>
