@@ -6,8 +6,9 @@
     <title>ប្រព័ន្ធស្កេនវត្តមានដោយប្រើផ្ទៃមុខ</title>
     <!-- Include Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Include face-api.js for face recognition -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- កែសម្រួល៖ ផ្ទុក face-api.js ពីក្នុង Project -->
+    <!-- សូមប្រាកដថាអ្នកមានឯកសារ face-api.min.js នៅក្នុង Folder តែមួយជាមួយไฟล์ html នេះ -->
+    <script src="./face-api.min.js"></script>
     <style>
         /* Custom styles for the loading spinner and animations */
         .loader {
@@ -125,7 +126,9 @@
 
         // Function to load face-api.js models
         async function loadModels() {
-            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+            // កែសម្រួល៖ ផ្ទុកម៉ូដែលពីក្នុង Project ផ្ទាល់
+            // សូមប្រាកដថាអ្នកមាន Folder ឈ្មោះ 'models' ដែលមានផ្ទុកឯកសារម៉ូដែល។
+            const MODEL_URL = './models';
             try {
                 await Promise.all([
                     faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -134,7 +137,7 @@
                 ]);
             } catch (err) {
                  console.error("Error loading models: ", err);
-                 loadingMessage.innerText = "Error: មិនអាចទាញយកម៉ូដែល AI បានទេ។";
+                 loadingMessage.innerText = "Error: មិនអាចផ្ទុកម៉ូដែល AI បានទេ។ សូមពិនិត្យមើល Folder 'models'។";
             }
         }
 
@@ -185,7 +188,8 @@
 
             } catch (error) {
                 console.error('Error fetching Google Sheets data:', error);
-                loadingMessage.innerText = "Error: فشل في جلب البيانات. تحقق من مفتاح API ومعرف الورقة وإعدادات المشاركة.";
+                // CHANGED the error message to Khmer
+                loadingMessage.innerText = "កំហុស៖ ការទាញយកទិន្នន័យបានបរាជ័យ។ សូមពិនិត្យ API Key, Sheet ID និងការកំណត់ការចែករំលែក។";
                 alert(`Error fetching data: ${error.message}. \nPlease check your API Key, Sheet ID, and that the sheet is public.`);
             }
         }
@@ -335,3 +339,4 @@
     </script>
 </body>
 </html>
+
